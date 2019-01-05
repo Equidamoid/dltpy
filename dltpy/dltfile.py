@@ -66,6 +66,8 @@ class DltMessage:
 
 class DltFile:
     def __init__(self, fn: Path):
+        if not isinstance(fn, Path):
+            fn = Path(fn)
         self._fn = fn
         self._f_len = fn.stat().st_size
         self.fd = fn.open('rb')

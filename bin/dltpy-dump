@@ -1,0 +1,13 @@
+#! /usr/bin/env python3
+
+from dltpy import dltfile
+import sys
+
+def main():
+    fn = sys.argv[1]
+    dltf = dltfile.DltFile(fn)
+    for dm in dltf:
+        print('[%9.4f] %4s:%4s %r' % (dm.ts, dm.app, dm.ctx, dm.payload))
+
+if __name__ == '__main__':
+    main()
