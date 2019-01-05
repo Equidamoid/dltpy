@@ -1,5 +1,4 @@
 /opt
 /.idea
-/dltpy/gen/*.py
 /data
 __pycache__
