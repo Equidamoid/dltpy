@@ -1,2 +1,3 @@
 /opt
 /.idea
+/dltpy/gen/*.py
