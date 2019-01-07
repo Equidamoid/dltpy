@@ -4,7 +4,7 @@ from pathlib import Path
 
 setup(
     name='dltpy',
-    version='0.1',
+    version='0.2',
     description='Pyre-python reader for DLT log files',
     long_description=Path('README.md').read_text(),
     long_description_content_type="text/markdown",
