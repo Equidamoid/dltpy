@@ -1,0 +1,13 @@
+language: python
+python:
+ - '3.5'
+ - '3.6'
+deploy:
+  provider: pypi
+  user: equi
+  distributions: sdist
+  password:
+    secure: ci5Kl4SR3F0It5g9XNHgRAQ/eoDVYkSPK7eibjx+/DskkHe1dJzHK7M7WELDPNE9jd2OMwq19SwKy0WoajD+Z/z9p3KpyZojnUWrOa5GIRiJhBtOgPc0ze8vqyMkmXIMhmgUwfrqwEsvB9Zg0mXH9h4jDincwPqFsfi+Ux5nPryAhmsFrgbPUOg59uXbBj4zXoHBy9C5NeyTM0QpyhPZQqHaaj+ssQXEX8hFv37ieX4LCmqBhi+pIZbx6l/LpRBhh3wLMe7fl8ZcZQGb/xfgWk37xoYRi0l+LEiKoZk6i16lSx8hiAKjFogWkR1kb+iFz+nmZ/FjbVIyVwXO/tK3Ec3jivyKcPqUyACXqblp9qFkh6EFPclaY9wOmGJ8viYMSPs9t3Z1yyoYkYaTjJLZtDGtIrB5L/ULbxBil+Aq8HYKz9enmXkD1nJHqBXVKkYTzNM+a8S3m1wZko5oTH3JSjlSzg9wUiLRhkksnNNAWS2IeMSlxw+KpmcCqPnMKI94BAF0qXE8T+qsAk57jI9Wm0wxmaK6Ew6QyA8Tb4MEH6DBfv1TKoRZCn7A2O3DKgbEhSgze+A6dUf1AfRBU+ft1FJwZFTXbBbaMAD1h2XKkBfUr5MXgpr22ys7biuiQ66uzzwAW8zDGY7c3LBRDbyMaEM6hwoNtu0cNVBGIxF8yoc=
+  on:
+    python: '3.6'
+    tags: true
