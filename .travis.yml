@@ -2,6 +2,8 @@ language: python
 python:
  - '3.5'
  - '3.6'
+script:
+  pip3 install .
 deploy:
   provider: pypi
   user: equi
