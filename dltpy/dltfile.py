@@ -20,6 +20,7 @@ from dltpy.gen.payload_item import PayloadItem
 from binascii import hexlify
 import logging
 import io
+import typing
 logger = logging.getLogger(__name__)
 
 def hex(v):
@@ -74,19 +75,40 @@ class DltMessage:
     def __str__(self):
         return 'DltMsg(%s,%s:%s,)' % (self.ts, self.app, self.ctx)
 
+    def match(self, filters: typing.List[typing.Tuple[str, str]]):
+        for app, ctx in filters:
+            if (app is None or self.app == app) and (ctx is None or self.ctx == ctx):
+                return True
+        return False
+
     @property
     def payload(self):
         if self._payload_cache is None:
             self._payload_cache = parse_payload(self.raw_payload)
         return self._payload_cache
 
+    @property
+    def human_friendly_payload(self):
+        pl = self.payload
+        if pl and len(pl) == 1 and isinstance(pl[0], bytes):
+            pl = pl[0]
+            try:
+                pl = pl.decode()
+                if len(pl) > 1 and pl[-1] == '\0':
+                    pl = pl[:-1]
+                pl = pl.strip()
+            except UnicodeDecodeError:
+                pass
+        return pl
+
 class DltFile:
-    def __init__(self, fn: Path):
+    def __init__(self, fn: Path, filters: typing.List[typing.Tuple[str, str]] = None):
         if not isinstance(fn, Path):
             fn = Path(fn)
         self._fn = fn
         self._f_len = fn.stat().st_size
         self.fd = fn.open('rb')
+        self.filters = filters
 
 
     def get_next_message(self) -> DltMessage:
@@ -95,6 +117,9 @@ class DltFile:
             sm = StoredMessage.from_io(self.fd)
             msg = DltMessage(sm)
             if msg.verbose:
+                if not self.filters is None:
+                    if not msg.match(self.filters):
+                        continue
                 ret = msg
                 break
 
