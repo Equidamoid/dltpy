@@ -22,28 +22,35 @@ class PayloadItem(KaitaiStruct):
         if self.plt.uint:
             _on = self.plt.len
             if _on == 4:
-                self.uint = self._io.read_u8be()
+                self.uint = self._io.read_u8le()
             elif _on == 1:
                 self.uint = self._io.read_u1()
             elif _on == 3:
-                self.uint = self._io.read_u4be()
+                self.uint = self._io.read_u4le()
             elif _on == 5:
                 self.uint = self._io.read_bits_int(16)
             elif _on == 2:
-                self.uint = self._io.read_u2be()
+                self.uint = self._io.read_u2le()
 
         if self.plt.sint:
             _on = self.plt.len
             if _on == 4:
-                self.sint = self._io.read_s8be()
+                self.sint = self._io.read_s8le()
             elif _on == 1:
                 self.sint = self._io.read_s1()
             elif _on == 3:
-                self.sint = self._io.read_s4be()
+                self.sint = self._io.read_s4le()
             elif _on == 5:
                 self.sint = self._io.read_bits_int(16)
             elif _on == 2:
-                self.sint = self._io.read_s2be()
+                self.sint = self._io.read_s2le()
+
+        if self.plt.floa:
+            _on = self.plt.len
+            if _on == 3:
+                self.float = self._io.read_f4le()
+            elif _on == 4:
+                self.float = self._io.read_f8le()
 
         if self.plt.bool:
             self.bool = self._io.read_s1()
@@ -71,7 +78,7 @@ class PayloadItem(KaitaiStruct):
             self.strg = self._io.read_bits_int(1) != 0
             self.aray = self._io.read_bits_int(1) != 0
             self._io.align_to_byte()
-            self.whatever = self._io.read_u2be()
+            self.whatever = self._io.read_u2le()
 
 
     class SizedString(KaitaiStruct):

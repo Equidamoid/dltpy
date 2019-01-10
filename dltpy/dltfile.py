@@ -44,6 +44,11 @@ def parse_payload(pl: bytes):
             return None
         if isinstance(value, PayloadItem.SizedString):
             value = value.data
+
+        # strings are null-terminated in dlt, no need for this null in python
+        if item.plt.strg:
+            assert value[-1] == 0
+            value = value[:-1]
         ret.append(value)
     return ret
 
@@ -64,7 +69,7 @@ class DltMessage:
         if raw.msg.hdr.use_ext:
             self._raw_ext: StoredMessage.ExtendedHeader = raw.msg.ext_hdr
             self.app = self._raw_ext.app.replace('\0', '')
-            self.ctx = self._raw_ext.app.replace('\0', '')
+            self.ctx = self._raw_ext.ctx.replace('\0', '')
             self.verbose = self._raw_ext.verbose
         if raw.msg.hdr.has_tmsp:
             self.ts = raw.msg.hdr.tmsp * 1e-4

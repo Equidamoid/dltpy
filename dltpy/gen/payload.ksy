@@ -16,7 +16,7 @@
 
 meta:
   id: payload_item
-  endian: be
+  endian: le
 seq:
   - id: plt
     type: payload_type
@@ -46,6 +46,14 @@ seq:
         4: s8
         5: b16
 #        5: u16
+
+  - id: float
+    if: plt.floa
+    type:
+      switch-on: plt.len
+      cases:
+        3: f4
+        4: f8
 
   - id: bool
     if: plt.bool
