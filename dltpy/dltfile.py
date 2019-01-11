@@ -119,7 +119,20 @@ class DltFile:
     def get_next_message(self) -> DltMessage:
         ret = None
         while self.fd.tell() != self._f_len:
-            sm = StoredMessage.from_io(self.fd)
+            start_offset = self.fd.tell()
+            try:
+                sm = StoredMessage.from_io(self.fd)
+            except:
+                logger.exception("Can't parse message at offset %d, will try to recover", start_offset)
+                start_offset += 1
+                while start_offset < self._f_len:
+                    self.fd.seek(start_offset)
+                    buf = self.fd.read(4)
+                    if buf == b'DLT\x01':
+                        logger.warning("DLT signature found at offset %d, continue", start_offset)
+                        self.fd.seek(start_offset)
+                    else:
+                        start_offset += 1
             msg = DltMessage(sm)
             if msg.verbose:
                 if not self.filters is None:
