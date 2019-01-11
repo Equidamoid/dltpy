@@ -53,8 +53,7 @@ def parse_payload(pl: bytes):
     return ret
 
 class DltMessage:
-    def __init__(self, raw: StoredMessage):
-        self._raw_msg: StoredMessage = raw
+    def __init__(self, raw: StoredMessage, raw_data: bytes = None):
         self.app: str = None
         self.ctx: str = None
         self.ts: float = None
@@ -63,6 +62,7 @@ class DltMessage:
         self.raw_payload: bytes = None
         self._raw_ext: StoredMessage.ExtendedHeader = None
         self._payload_cache = None
+        self._raw_data = raw_data
         self.load(raw)
 
     def load(self, raw: StoredMessage):
@@ -107,13 +107,14 @@ class DltMessage:
         return pl
 
 class DltFile:
-    def __init__(self, fn: Path, filters: typing.List[typing.Tuple[str, str]] = None):
+    def __init__(self, fn: Path, filters: typing.List[typing.Tuple[str, str]] = None, capture_raw=False):
         if not isinstance(fn, Path):
             fn = Path(fn)
         self._fn = fn
         self._f_len = fn.stat().st_size
         self.fd = fn.open('rb')
         self.filters = filters
+        self._capture_raw = capture_raw
 
 
     def get_next_message(self) -> DltMessage:
@@ -133,7 +134,13 @@ class DltFile:
                         self.fd.seek(start_offset)
                     else:
                         start_offset += 1
-            msg = DltMessage(sm)
+            raw_data = None
+            if self._capture_raw:
+                end_offset = self.fd.tell()
+                self.fd.seek(start_offset)
+                raw_data = self.fd.read(end_offset - start_offset)
+                self.fd.seek(end_offset)
+            msg = DltMessage(sm, raw_data)
             if msg.verbose:
                 if not self.filters is None:
                     if not msg.match(self.filters):

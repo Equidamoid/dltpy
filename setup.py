@@ -12,7 +12,7 @@ setup(
     author_email='equidamoid@gmail.com',
     url='https://github.com/Equidamoid/dltpy',
     packages=find_packages(),
-    scripts=['bin/dltpy-dump'],
+    scripts=['bin/dltpy-dump', 'bin/dltpy-filter'],
     install_requires=['kaitaistruct>=0.7'],
     classifiers=[
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
