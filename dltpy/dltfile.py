@@ -132,8 +132,10 @@ class DltFile:
                     if buf == b'DLT\x01':
                         logger.warning("DLT signature found at offset %d, continue", start_offset)
                         self.fd.seek(start_offset)
+                        break
                     else:
                         start_offset += 1
+                continue
             raw_data = None
             if self._capture_raw:
                 end_offset = self.fd.tell()

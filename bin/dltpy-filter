@@ -34,11 +34,11 @@ def main():
 
                 out_fn = out_fn_base
                 if args.lifecycle_split:
-                    out_fn = out_fn_base.parent / ('%s%02d.%s' % (out_fn_base.stem, out_fn_counter, out_fn_base.suffix))
+                    out_fn = out_fn_base.parent / ('%s%02d%s' % (out_fn_base.stem, out_fn_counter, out_fn_base.suffix))
                     out_fn_counter += 1
 
                 out_fd = out_fn.open('wb')
-
+            current_ts = msg.ts
             out_fd.write(msg._raw_data)
 
     out_fd.close()
