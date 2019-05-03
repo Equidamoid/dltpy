@@ -18,10 +18,17 @@ from pathlib import Path
 from dltpy.gen.stored_message import StoredMessage
 from dltpy.gen.payload_item import PayloadItem
 from binascii import hexlify
+try:
+    import dltpy.native.native_dltfile
+except ImportError:
+    pass
 import logging
 import io
 import typing
+import os
+
 logger = logging.getLogger(__name__)
+
 
 def hex(v):
     return hexlify(v).decode()
@@ -53,7 +60,7 @@ def parse_payload(pl: bytes):
     return ret
 
 class DltMessage:
-    def __init__(self, raw: StoredMessage, raw_data: bytes = None):
+    def __init__(self, raw: StoredMessage, raw_data: bytes = None, native=False):
         self.app: str = None
         self.ctx: str = None
         self.ts: float = None
@@ -63,7 +70,10 @@ class DltMessage:
         self._raw_ext: StoredMessage.ExtendedHeader = None
         self._payload_cache = None
         self._raw_data = raw_data
-        self.load(raw)
+        if native:
+            self.loadn(raw)
+        else:
+            self.load(raw)
 
     def load(self, raw: StoredMessage):
         if raw.msg.hdr.use_ext:
@@ -76,6 +86,22 @@ class DltMessage:
 
         self.date = raw.storage_hdr.ts_sec + (raw.storage_hdr.ts_msec * 1e-3)
         self.raw_payload = raw.msg.payload
+
+    def loadn(self, raw):
+        ehdr = raw.ext_hdr()
+        bhdr = raw.basic_hdr()
+        shdr = raw.storage_hdr()
+        if ehdr:
+            self.app = ehdr['app']
+            self.ctx = ehdr['ctx']
+            self.verbose = ehdr['verbose']
+
+        ts = bhdr.get('tmsp', None)
+        if ts:
+            self.ts = 1e-4 * ts
+
+        self.date = shdr['ts_sec'] + shdr['ts_msec'] * 1e-3
+        self.raw_payload = raw.raw_payload()
 
     def __str__(self):
         return 'DltMsg(%s,%s:%s,)' % (self.ts, self.app, self.ctx)
@@ -105,6 +131,34 @@ class DltMessage:
             except UnicodeDecodeError:
                 pass
         return pl
+
+
+class DltReader:
+    def __init__(self, fn, filters, capure_raw=False):
+        assert not capure_raw
+        self.fd = open(fn)
+        self.rdr = dltpy.native.native_dltfile.DltReader(self.fd.fileno())
+        if filters:
+            self.rdr.set_filters(filters)
+
+    def get_next_message(self):
+        try:
+            self.rdr.next_safe()
+        except EOFError:
+            return None
+        m = DltMessage(self.rdr, None, True)
+        return m
+
+
+    def __iter__(self) -> DltMessage:
+        while True:
+            ret = self.get_next_message()
+            if ret is None:
+                return
+            if not ret.verbose:
+                continue
+            yield ret
+
 
 class DltFile:
     def __init__(self, fn: Path, filters: typing.List[typing.Tuple[str, str]] = None, capture_raw=False):
@@ -158,3 +212,6 @@ class DltFile:
             if ret is None:
                 return
             yield ret
+
+if 'DLTPY_NATIVE' in os.environ:
+    DltFile = DltReader
