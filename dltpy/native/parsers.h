@@ -4,7 +4,7 @@ size_t fill_one(const char* , T&);
 template<class T, class Enable=void>
 struct filler;
 
-template<int N>
+template<size_t N>
 struct filler<std::array<char, N>>{
     static size_t fill(const char* begin, bool bigend, std::array<char, N>& dest){
         std::copy(begin, begin + N, dest.begin());
