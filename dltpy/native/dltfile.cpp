@@ -10,7 +10,7 @@
 #include <unistd.h>
 #include <cassert>
 #include <vector>
-
+#include <algorithm>
 
 const char* const dlt_magic = "DLT\x01";
 
