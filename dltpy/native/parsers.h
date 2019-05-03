@@ -1,3 +1,5 @@
+#include <algorithm>
+
 template<class T>
 size_t fill_one(const char* , T&);
 

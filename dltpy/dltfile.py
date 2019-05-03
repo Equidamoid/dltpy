@@ -92,8 +92,8 @@ class DltMessage:
         bhdr = raw.basic_hdr()
         shdr = raw.storage_hdr()
         if ehdr:
-            self.app = ehdr['app']
-            self.ctx = ehdr['ctx']
+            self.app = ehdr['app'].replace(b'\0', b'').decode()
+            self.ctx = ehdr['ctx'].replace(b'\0', b'').decode()
             self.verbose = ehdr['verbose']
 
         ts = bhdr.get('tmsp', None)

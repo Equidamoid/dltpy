@@ -10,7 +10,6 @@
 #include <unistd.h>
 #include <cassert>
 #include <vector>
-#include <algorithm>
 
 const char* const dlt_magic = "DLT\x01";
 
@@ -82,7 +81,7 @@ int DltReader::ensureBuffer(int len){
         throw std::runtime_error("Can't read()");
     }
     iBufferEnd += bytes_read;
-    printf("Read %ld bytes\n", bytes_read);
+    fprintf(stderr, "Read %ld bytes\n", bytes_read);
     iPayloadBegin = nullptr;
     iPayloadEnd = nullptr;
     return offset;
@@ -111,9 +110,9 @@ void DltReader::next(){
     bool bigend = iBasicHeader.big_endian;
 
     d = fill_struct(d, nullptr, bigend, iBasicHeader.mcnt, iBasicHeader.msg_len);
-    if (iBasicHeader.has_tmsp) d = fill_struct(d, nullptr, bigend, iBasicHeader.tmsp);
-    if (iBasicHeader.has_seid) d = fill_struct(d, nullptr, bigend, iBasicHeader.seid);
     if (iBasicHeader.has_ecu_id) d = fill_struct(d, nullptr, bigend, iBasicHeader.ecu_id);
+    if (iBasicHeader.has_seid) d = fill_struct(d, nullptr, bigend, iBasicHeader.seid);
+    if (iBasicHeader.has_tmsp) d = fill_struct(d, nullptr, bigend, iBasicHeader.tmsp);
     if (iBasicHeader.msg_len > 4096){
         throw dlt_corrupted("Message is suspiciously long");
     }
