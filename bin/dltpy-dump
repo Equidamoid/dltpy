@@ -27,7 +27,7 @@ def main():
     prs.add_argument('file', nargs=1)
     args = prs.parse_args()
     fn = args.file[0]
-    filters = [tuple([x or None for x in flt.split(':')]) for flt in args.filter] if args.filter else None
+    filters = [tuple(flt.split(':')) for flt in args.filter] if args.filter else None
     logging.warning("Will print file %s with filters: %s", fn, filters)
     dltf = dltfile.DltFile(fn, filters)
     for dm in dltf:

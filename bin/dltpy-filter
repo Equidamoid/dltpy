@@ -14,7 +14,7 @@ def main():
     prs.add_argument('files', help='files to process', nargs='*')
 
     args = prs.parse_args()
-    filters = [tuple([x or None for x in flt.split(':')]) for flt in args.filter] if args.filter else None
+    filters = [tuple(flt.split(':')) for flt in args.filter] if args.filter else None
 
     logging.warning("Filters: %s", filters)
 
