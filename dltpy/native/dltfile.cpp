@@ -56,6 +56,7 @@ public:
     const BasicHeader& basicHdr() const {return iBasicHeader;}
     const ExtendedHeader* extHdr() const {return iBasicHeader.use_ext.value?&iExtendedHeader:nullptr;}
 
+    const char* messageBegin() const {return iMessageBegin;}
     const char* payloadBegin() const {return iPayloadBegin;}
     const char* payloadEnd() const {return iCursor;}
 };
@@ -89,7 +90,6 @@ int DltReader::ensureBuffer(int len){
 
 void DltReader::next(){
     ensureBuffer(64);
-    iMessageBegin = iCursor;
     const char* d = iCursor;
     d = fill_struct(d, d + 10, false, iStoragiExtendedHeader.magic, iStoragiExtendedHeader.ts_sec, iStoragiExtendedHeader.ts_msec, iStoragiExtendedHeader.ecu_id);
     auto& m = iStoragiExtendedHeader.magic;
@@ -141,8 +141,9 @@ void DltReader::next(){
 
     auto off = ensureBuffer(msg_end - iCursor);
 
+    iMessageBegin = iCursor;
     iPayloadBegin = iCursor + pl_offset;
-    iCursor+=pl_end_offset;
+    iCursor += pl_end_offset;
 }
 
 bool DltReader::checkFilters(){
@@ -245,6 +246,16 @@ object pyGetPayload(const DltReader& rdr){
     return object();
 }
 
+object pyGetRawMessage(const DltReader& rdr){
+    auto pbegin = rdr.messageBegin();
+    auto pend = rdr.payloadEnd();
+    if (pbegin && pend){
+        return object(boost::python::handle<>(PyBytes_FromStringAndSize(pbegin, pend - pbegin)));
+    }
+    return object();
+}
+
+
 void translate(dlt_eof const &e)
 {
     PyErr_SetString(PyExc_EOFError, e.what());
@@ -258,6 +269,7 @@ BOOST_PYTHON_MODULE(native_dltfile)
         .def("basic_hdr", &pyGetBasicHeader)
         .def("storage_hdr", &pyGetStorageHeader)
         .def("raw_payload", &pyGetPayload)
+        .def("raw_message", &pyGetRawMessage)
         .def("set_filters", &pySetFilters)
         ;
 

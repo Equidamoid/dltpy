@@ -103,6 +103,9 @@ class DltMessage:
         self.date = shdr['ts_sec'] + shdr['ts_msec'] * 1e-3
         self.raw_payload = raw.raw_payload()
 
+        # todo memory view
+        self._raw_data = raw.raw_message()
+
     def __str__(self):
         return 'DltMsg(%s,%s:%s,)' % (self.ts, self.app, self.ctx)
 
@@ -135,7 +138,7 @@ class DltMessage:
 
 class DltReader:
     def __init__(self, fn, filters, capure_raw=False):
-        assert not capure_raw
+        #TODO optional capture_raw
         self.fd = open(fn)
         self.rdr = dltpy.native.native_dltfile.DltReader(self.fd.fileno())
         if filters:
