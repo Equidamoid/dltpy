@@ -29,4 +29,12 @@ target_link_libraries(${PROJECT_NAME}
     ${Boost_LIBRARIES}
     ${PYTHON_LIBRARY}
 )
+set_target_properties(
+    ${PROJECT_NAME}
+    PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME ${PROJECT_NAME}
+        LINKER_LANGUAGE C
+    )
+
 #install(TARGETS pythondecoderplugin DESTINATION deploy/plugins)
