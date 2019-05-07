@@ -25,7 +25,8 @@ class dlt_eof: public std::exception{
 
 class DltReader{
     int iFd;
-    std::array<char, 4096> iBuffer;
+    off_t iInputOffset{0};
+    std::array<char, 8196> iBuffer;
     char* iBufferEnd{iBuffer.begin()};
     char* iCursor{iBuffer.begin()};
 
@@ -69,6 +70,7 @@ int DltReader::ensureBuffer(int len){
     std::copy(iCursor, iBufferEnd, iCursor - offset);
     iCursor -= offset;
     iBufferEnd -= offset;
+    iInputOffset += offset;
     if (iBuffer.end() - iBufferEnd <=0 ){
         throw std::runtime_error("Non-positive read() length");
     }
@@ -82,7 +84,7 @@ int DltReader::ensureBuffer(int len){
         throw std::runtime_error("Can't read()");
     }
     iBufferEnd += bytes_read;
-    fprintf(stderr, "Read %ld bytes\n", bytes_read);
+    //fprintf(stderr, "Read %ld bytes\n", bytes_read);
     iPayloadBegin = nullptr;
     iPayloadEnd = nullptr;
     return offset;
@@ -109,11 +111,12 @@ void DltReader::next(){
 
     bool bigend = iBasicHeader.big_endian;
 
-    d = fill_struct(d, nullptr, bigend, iBasicHeader.mcnt, iBasicHeader.msg_len);
-    if (iBasicHeader.has_ecu_id) d = fill_struct(d, nullptr, bigend, iBasicHeader.ecu_id);
-    if (iBasicHeader.has_seid) d = fill_struct(d, nullptr, bigend, iBasicHeader.seid);
-    if (iBasicHeader.has_tmsp) d = fill_struct(d, nullptr, bigend, iBasicHeader.tmsp);
+    d = fill_struct(d, nullptr, false, iBasicHeader.mcnt, iBasicHeader.msg_len);
+    if (iBasicHeader.has_ecu_id) d = fill_struct(d, nullptr, false, iBasicHeader.ecu_id);
+    if (iBasicHeader.has_seid) d = fill_struct(d, nullptr, false, iBasicHeader.seid);
+    if (iBasicHeader.has_tmsp) d = fill_struct(d, nullptr, false, iBasicHeader.tmsp);
     if (iBasicHeader.msg_len > 4096){
+        //abort();
         throw dlt_corrupted("Message is suspiciously long");
     }
     if (iBasicHeader.use_ext){
@@ -123,7 +126,7 @@ void DltReader::next(){
             iExtendedHeader.mtsp,
             iExtendedHeader.verbose
         );
-        d = fill_struct(d, nullptr, bigend,
+        d = fill_struct(d, nullptr, false,
             iExtendedHeader.arg_count,
             iExtendedHeader.app,
             iExtendedHeader.ctx
@@ -151,7 +154,6 @@ bool DltReader::checkFilters(){
     if (iFilters.empty()){
         return true;
     }
-
     // No extended header -> no app/ctx -> failed filter
     if (!iBasicHeader.use_ext){
         return false;
@@ -177,7 +179,11 @@ void DltReader::next_safe(){
             break;
         }
         catch(const dlt_corrupted& ex){
-            fprintf(stderr, "File corrupted, trying to recover...");
+            auto off = iInputOffset + (iCursor - iBuffer.begin());
+
+            fprintf(stderr, "File corrupted (%s) (pos=%d, seq=%d,msglen=%d, end=%d, ver=%d, has_ext=%d), trying to recover...", 
+                ex.what(), (int)off, iBasicHeader.mcnt,
+                iBasicHeader.msg_len, iBasicHeader.big_endian.value, iBasicHeader.version.value, iBasicHeader.use_ext.value);
             auto cur = iCursor;
             ++iCursor;
             while(1){

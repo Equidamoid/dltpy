@@ -32,10 +32,13 @@ template<int Len, int... Lengths>
 const char* read_bitmask(const char* begin, int offset, SubByteValue<Len>& val, SubByteValue<Lengths>&... values){
     val.value = 0;
     for(int i = offset; i < offset + Len; i++){
-        uint8_t bit = (begin[i / 8] << (i % 8)) & 128 ;
+        uint8_t bit = ((begin[i / 8] << (i % 8)) & 128) >> 7 ;
+        //uint8_t bit = ((begin[i / 8] >> (i % 8)) & 1)  ;
         val.value <<= 1;
         val.value += bit;
     }
-
+    if (val.value >= (1<<Len)){
+        abort();
+    }
     return read_bitmask(begin, offset + Len, values...);
 }
