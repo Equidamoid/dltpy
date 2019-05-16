@@ -25,6 +25,7 @@ class dlt_eof: public std::exception{
 
 class DltReader{
     int iFd;
+    bool iExpectStorage{true};
     off_t iInputOffset{0};
     std::array<char, 8196> iBuffer;
     char* iBufferEnd{iBuffer.begin()};
@@ -44,7 +45,7 @@ class DltReader{
 
 
 public:
-    DltReader(int fd): iFd{fd} {};
+    DltReader(int fd, bool expectStorage): iFd{fd}, iExpectStorage{expectStorage} {};
     void setFilters(const std::vector<std::array<std::string, 2>> flt){iFilters = flt;};
 
     bool checkFilters();
@@ -93,11 +94,14 @@ int DltReader::ensureBuffer(int len){
 void DltReader::next(){
     ensureBuffer(64);
     const char* d = iCursor;
-    d = fill_struct(d, d + 10, false, iStoragiExtendedHeader.magic, iStoragiExtendedHeader.ts_sec, iStoragiExtendedHeader.ts_msec, iStoragiExtendedHeader.ecu_id);
-    auto& m = iStoragiExtendedHeader.magic;
-    if (!(m[0] == 'D' && m[1] == 'L' && m[2] == 'T')){
-        fprintf(stderr, "Magic mismatch!");
-        throw dlt_corrupted("Magic mismatch!");
+    if (iExpectStorage)
+    {
+        d = fill_struct(d, d + 10, false, iStoragiExtendedHeader.magic, iStoragiExtendedHeader.ts_sec, iStoragiExtendedHeader.ts_msec, iStoragiExtendedHeader.ecu_id);
+        auto& m = iStoragiExtendedHeader.magic;
+        if (!(m[0] == 'D' && m[1] == 'L' && m[2] == 'T')){
+            fprintf(stderr, "Magic mismatch!");
+            throw dlt_corrupted("Magic mismatch!");
+        }
     }
 //    assert(m[0] == 'D' && m[1] == 'L' && m[2] == 'T');
     auto msg_begin = d;
@@ -269,7 +273,7 @@ void translate(dlt_eof const &e)
 
 BOOST_PYTHON_MODULE(native_dltfile)
 {
-    class_<DltReader>("DltReader", init<int>())
+    class_<DltReader>("DltReader", init<int, bool>())
         .def("next_safe", &DltReader::next_safe)
         .def("ext_hdr", &pyGetExtHeader)
         .def("basic_hdr", &pyGetBasicHeader)
@@ -287,7 +291,7 @@ BOOST_PYTHON_MODULE(native_dltfile)
 int main(){
     int fd = open("/Users/equi/PycharmProjects/dltpy/data/park_crash_1_corrupted.dlt", O_RDONLY);
     assert(fd);
-    DltReader r(fd);
+    DltReader r(fd, true);
     for (int i = 0; i <= 100000; i++)
     {
         r.next_safe();

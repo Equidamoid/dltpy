@@ -137,10 +137,10 @@ class DltMessage:
 
 
 class DltReader:
-    def __init__(self, fn, filters, capure_raw=False):
+    def __init__(self, fn, filters=None, capure_raw=False, expect_storage_header=True):
         #TODO optional capture_raw
         self.fd = open(fn)
-        self.rdr = dltpy.native.native_dltfile.DltReader(self.fd.fileno())
+        self.rdr = dltpy.native.native_dltfile.DltReader(self.fd.fileno(), expect_storage_header)
         if filters:
             self.rdr.set_filters(filters)
 
