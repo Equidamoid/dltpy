@@ -1,3 +1,19 @@
+// This file is part of pydlt
+// Copyright 2019  Vladimir Shapranov
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 #include <stdio.h>
 #include <array>
 #include <stdint.h>
@@ -119,6 +135,10 @@ void DltReader::next(){
     if (iBasicHeader.has_ecu_id) d = fill_struct(d, nullptr, false, iBasicHeader.ecu_id);
     if (iBasicHeader.has_seid) d = fill_struct(d, nullptr, false, iBasicHeader.seid);
     if (iBasicHeader.has_tmsp) d = fill_struct(d, nullptr, false, iBasicHeader.tmsp);
+
+    // Whoopsie, no messages longer than 4Kb.
+    // They actually should never happen since DLT uses single pipe for all incoming data
+    // and in general if you send more than PIPE_MAX bytes concurrently to a pipe, the data can get mangled.
     if (iBasicHeader.msg_len > 4096){
         //abort();
         throw dlt_corrupted("Message is suspiciously long");

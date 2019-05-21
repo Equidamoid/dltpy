@@ -8,7 +8,7 @@ TODO: upload to pypi
 
 #### Using
 
-See `dltpy-dump` as example. Everything boils down to creating a `DltFile` instance and getting `DltMessage`s out of it.
+See `dltpy_dump.py` as an example. Everything boils down to creating a `DltFile` instance and getting `DltMessage`s out of it.
 
 Please note that non-`verbose` messages are skipped by `DltFile` since it has no way of decoding the payload.
 
