@@ -74,7 +74,7 @@ class DltMessage:
         if raw.msg.hdr.has_tmsp:
             self.ts = raw.msg.hdr.tmsp * 1e-4
 
-        self.date = raw.storage_hdr.ts_sec + (raw.storage_hdr.ts_msec * 1e-3)
+        self.date = raw.storage_hdr.ts_sec + (raw.storage_hdr.ts_msec * 1e-6)
         self.raw_payload = raw.msg.payload
 
     def __str__(self):

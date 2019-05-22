@@ -27,8 +27,8 @@ class StoredMessage(KaitaiStruct):
 
         def _read(self):
             self.magic = self._io.ensure_fixed_contents(b"\x44\x4C\x54\x01")
-            self.ts_sec = self._io.read_u4be()
-            self.ts_msec = self._io.read_u4be()
+            self.ts_sec = self._io.read_u4le()
+            self.ts_msec = self._io.read_s4le()
             self.ecu_id = (self._io.read_bytes(4)).decode(u"ascii")
 
 
