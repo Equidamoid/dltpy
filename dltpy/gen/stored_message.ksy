@@ -30,9 +30,9 @@ types:
       - id: magic
         contents: [DLT, 1]
       - id: ts_sec
-        type: u4
+        type: u4le
       - id: ts_msec
-        type: u4
+        type: s4le
       - id: ecu_id
         size: 4
         type: str
