@@ -39,6 +39,11 @@ public:
 class dlt_eof: public std::exception{
 };
 
+class dlt_io_error: public std::runtime_error{
+public:
+    using std::runtime_error::runtime_error;
+};
+
 class DltReader{
     int iFd;
     bool iExpectStorage{true};
@@ -88,7 +93,7 @@ int DltReader::ensureBuffer(int len){
     iCursor -= offset;
     iBufferEnd -= offset;
     iInputOffset += offset;
-    if (iBuffer.end() - iBufferEnd <=0 ){
+    if (iBuffer.end() - iBufferEnd <= 0 ){
         throw std::runtime_error("Non-positive read() length");
     }
     auto bytes_read = read(iFd, iBufferEnd, iBuffer.end() - iBufferEnd);
@@ -98,7 +103,7 @@ int DltReader::ensureBuffer(int len){
     }
     if (bytes_read < 0){
         perror("Can't read");
-        throw std::runtime_error("Can't read()");
+        throw dlt_io_error("Can't read()");
     }
     iBufferEnd += bytes_read;
     //fprintf(stderr, "Read %ld bytes\n", bytes_read);
@@ -136,12 +141,9 @@ void DltReader::next(){
     if (iBasicHeader.has_seid) d = fill_struct(d, nullptr, false, iBasicHeader.seid);
     if (iBasicHeader.has_tmsp) d = fill_struct(d, nullptr, false, iBasicHeader.tmsp);
 
-    // Whoopsie, no messages longer than 4Kb.
-    // They actually should never happen since DLT uses single pipe for all incoming data
-    // and in general if you send more than PIPE_MAX bytes concurrently to a pipe, the data can get mangled.
-    if (iBasicHeader.msg_len > 4096){
-        //abort();
-        throw dlt_corrupted("Message is suspiciously long");
+    // DLT_USER_BUF_MAX_SIZE + some extra bytes
+    if (iBasicHeader.msg_len > 1500){
+        throw dlt_corrupted("Message significantly exceeds DLT_USER_BUF_MAX_SIZE");
     }
     if (iBasicHeader.use_ext){
         d = read_bitmask(
@@ -286,9 +288,14 @@ object pyGetRawMessage(const DltReader& rdr){
 }
 
 
-void translate(dlt_eof const &e)
+void translate_eof(dlt_eof const &e)
 {
     PyErr_SetString(PyExc_EOFError, e.what());
+}
+
+void translate_io(dlt_io_error const &e)
+{
+    PyErr_SetString(PyExc_IOError, e.what());
 }
 
 BOOST_PYTHON_MODULE(native_dltfile)
@@ -305,7 +312,8 @@ BOOST_PYTHON_MODULE(native_dltfile)
 
     class_<dlt_eof>("DltEof");
 
-    register_exception_translator<dlt_eof>(&translate);
+    register_exception_translator<dlt_eof>(&translate_eof);
+    register_exception_translator<dlt_io_error>(&translate_io);
 }
 
 int main(){
