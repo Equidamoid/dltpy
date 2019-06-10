@@ -18,10 +18,7 @@ from pathlib import Path
 from dltpy.gen.stored_message import StoredMessage
 from dltpy.gen.payload_item import PayloadItem
 from binascii import hexlify
-try:
-    import dltpy.native.native_dltfile
-except ImportError:
-    pass
+import dltpy.native.native_dltreader
 import logging
 import io
 import typing
@@ -60,37 +57,21 @@ def parse_payload(pl: bytes):
     return ret
 
 class DltMessage:
-    def __init__(self, raw: StoredMessage, raw_data: bytes = None, native=False):
+    def __init__(self, raw: dltpy.native.native_dltreader.DltReader, raw_data: bytes = None, native=False):
         self.app: str = None
         self.ctx: str = None
         self.ts: float = None
         self.date: float = None
         self.verbose: bool = None
         self.raw_payload: bytes = None
-        self._raw_ext: StoredMessage.ExtendedHeader = None
         self._payload_cache = None
         self._raw_data = raw_data
-        if native:
-            self.loadn(raw)
-        else:
-            self.load(raw)
+        self.loadn(raw)
 
-    def load(self, raw: StoredMessage):
-        if raw.msg.hdr.use_ext:
-            self._raw_ext: StoredMessage.ExtendedHeader = raw.msg.ext_hdr
-            self.app = self._raw_ext.app.replace('\0', '')
-            self.ctx = self._raw_ext.ctx.replace('\0', '')
-            self.verbose = self._raw_ext.verbose
-        if raw.msg.hdr.has_tmsp:
-            self.ts = raw.msg.hdr.tmsp * 1e-4
-
-        self.date = raw.storage_hdr.ts_sec + (raw.storage_hdr.ts_msec * 1e-3)
-        self.raw_payload = raw.msg.payload
-
-    def loadn(self, raw):
-        ehdr = raw.ext_hdr()
-        bhdr = raw.basic_hdr()
-        shdr = raw.storage_hdr()
+    def loadn(self, raw: dltpy.native.native_dltreader.DltReader):
+        ehdr = raw.get_extended()
+        bhdr = raw.get_basic()
+        shdr = raw.get_storage()
         if ehdr:
             self.app = ehdr['app'].replace(b'\0', b'').decode()
             self.ctx = ehdr['ctx'].replace(b'\0', b'').decode()
@@ -101,10 +82,10 @@ class DltMessage:
             self.ts = 1e-4 * ts
 
         self.date = shdr['ts_sec'] + shdr['ts_msec'] * 1e-3
-        self.raw_payload = raw.raw_payload()
+        self.raw_payload = bytes(raw.get_payload())
 
         # todo memory view
-        self._raw_data = raw.raw_message()
+        self._raw_data = bytes(raw.get_message())
 
     def __str__(self):
         return 'DltMsg(%s,%s:%s,)' % (self.ts, self.app, self.ctx)
@@ -137,19 +118,24 @@ class DltMessage:
 
 
 class DltReader:
-    def __init__(self, fn, filters=None, capure_raw=False, expect_storage_header=True):
+    def __init__(self, fd, filters=None, capure_raw=False, expect_storage_header=True):
         #TODO optional capture_raw
-        self.fd = open(fn)
-        self.rdr = dltpy.native.native_dltfile.DltReader(self.fd.fileno(), expect_storage_header)
-        if filters:
-            self.rdr.set_filters(filters)
+        filters = filters or []
+        self.fd = fd
+        self.capture_raw = capure_raw
+        self.rdr = dltpy.native.native_dltreader.DltReader(expect_storage_header, filters)
 
     def get_next_message(self):
-        try:
-            self.rdr.next_safe()
-        except EOFError:
-            return None
+        while not self.rdr.read():
+            buf = self.rdr.get_buffer()
+            logger.warning("Buffer to be read: %d", len(buf))
+            l = self.fd.readinto(buf)
+            if not l:
+                logger.warning("readinto returned 0, EOF")
+                return None
+            self.rdr.update_buffer(l)
         m = DltMessage(self.rdr, None, True)
+        self.rdr.consume_message()
         return m
 
 
@@ -216,5 +202,5 @@ class DltFile:
                 return
             yield ret
 
-if 'DLTPY_NATIVE' in os.environ:
+if True:
     DltFile = DltReader

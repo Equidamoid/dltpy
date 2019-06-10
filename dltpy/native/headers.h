@@ -14,6 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#pragma once
+
+#include <array>
+#include <stdint.h>
+#include "bitmasks.h"
+
 struct StorageHeader{
     std::array<char, 4> magic;
     uint32_t ts_sec;

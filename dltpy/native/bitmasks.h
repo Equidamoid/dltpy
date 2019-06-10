@@ -14,15 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#pragma once
+
 template<int N>
 struct SubByteValue{
     int value;
 //    template<typename std::enable_if<N == 1>::type* = 0>
-    operator bool(){
+    operator bool() const{
         static_assert(N == 1, "Can't cast to boolean, N != 1");
         return value;
     }
-    operator int(){
+    operator int() const{
         return value;
     }
 };
@@ -30,11 +32,11 @@ struct SubByteValue{
 using BooleanFlag = SubByteValue<1>;
 
 
-template<int... Lengths>
-const char* read_bitmask(const char* begin, int offset, SubByteValue<Lengths>&... values);
+template<class Char, int... Lengths>
+Char* read_bitmask(Char* begin, int offset, SubByteValue<Lengths>&... values);
 
-template<>
-const char* read_bitmask(const char* begin, int offset){
+template<class Char>
+Char* read_bitmask(Char* begin, int offset){
     if (offset % 8){
         throw std::runtime_error("Bitmask must take complete bytes");
     }
@@ -42,8 +44,8 @@ const char* read_bitmask(const char* begin, int offset){
     return begin + (offset / 8);
 };
 
-template<int Len, int... Lengths>
-const char* read_bitmask(const char* begin, int offset, SubByteValue<Len>& val, SubByteValue<Lengths>&... values){
+template<class Char, int Len, int... Lengths>
+Char* read_bitmask(Char* begin, int offset, SubByteValue<Len>& val, SubByteValue<Lengths>&... values){
     val.value = 0;
     for(int i = offset; i < offset + Len; i++){
         uint8_t bit = ((begin[i / 8] << (i % 8)) & 128) >> 7 ;

@@ -26,11 +26,12 @@ def main():
     prs.add_argument('file', nargs=1)
     args = prs.parse_args()
     fn = args.file[0]
-    filters = [tuple(flt.split(':')) for flt in args.filter] if args.filter else None
+    filters = [tuple([i or None for i in flt.split(':')]) for flt in args.filter] if args.filter else None
     logging.warning("Will print file %s with filters: %s", fn, filters)
-    dltf = dltfile.DltFile(fn, filters)
-    for dm in dltf:
-        print('[%9.4f]\t%4s:%4s\t%s' % (dm.ts, dm.app, dm.ctx, dm.human_friendly_payload))
+    with open(fn, 'rb') as fd:
+        dltf = dltfile.DltFile(fd, filters)
+        for dm in dltf:
+            print('[%9.4f]\t%4s:%4s\t%s' % (dm.ts, dm.app, dm.ctx, dm.human_friendly_payload))
 
 if __name__ == '__main__':
     main()

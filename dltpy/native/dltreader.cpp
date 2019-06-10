@@ -26,304 +26,243 @@
 #include <unistd.h>
 #include <cassert>
 #include <vector>
+#include "dltreader.h"
+#include "log.h"
 
-const char* const dlt_magic = "DLT\x01";
+const std::array<char, 4> storage_magic{'D', 'L', 'T', '\x01'};
 
-
-
-class dlt_corrupted: public std::runtime_error{
-public:
-    using std::runtime_error::runtime_error;
-};
-
-class dlt_eof: public std::exception{
-};
-
-class dlt_io_error: public std::runtime_error{
-public:
-    using std::runtime_error::runtime_error;
-};
-
-class DltReader{
-    int iFd;
-    bool iExpectStorage{true};
-    off_t iInputOffset{0};
-    std::array<char, 8196> iBuffer;
-    char* iBufferEnd{iBuffer.begin()};
-    char* iCursor{iBuffer.begin()};
-
-    std::vector<std::array<std::string, 2>> iFilters;
-
-    StorageHeader iStoragiExtendedHeader;
-    BasicHeader iBasicHeader;
-    ExtendedHeader iExtendedHeader;
-
-    char* iMessageBegin{nullptr};
-    char* iPayloadBegin{nullptr};
-
-    // Same as iCursor?
-    char* iPayloadEnd{nullptr};
-
-
-public:
-    DltReader(int fd, bool expectStorage): iFd{fd}, iExpectStorage{expectStorage} {};
-    void setFilters(const std::vector<std::array<std::string, 2>> flt){iFilters = flt;};
-
-    bool checkFilters();
-
-    int ensureBuffer(int len);
-    void next();
-    void next_safe();
-
-    const StorageHeader& storageHdr() const {return iStoragiExtendedHeader;}
-    const BasicHeader& basicHdr() const {return iBasicHeader;}
-    const ExtendedHeader* extHdr() const {return iBasicHeader.use_ext.value?&iExtendedHeader:nullptr;}
-
-    const char* messageBegin() const {return iMessageBegin;}
-    const char* payloadBegin() const {return iPayloadBegin;}
-    const char* payloadEnd() const {return iCursor;}
-};
-
-int DltReader::ensureBuffer(int len){
-    if (iBufferEnd - iCursor >= len){
-        return 0;
-    }
-    auto offset = iCursor - iBuffer.begin();
-    std::copy(iCursor, iBufferEnd, iCursor - offset);
-    iCursor -= offset;
-    iBufferEnd -= offset;
-    iInputOffset += offset;
-    if (iBuffer.end() - iBufferEnd <= 0 ){
-        throw std::runtime_error("Non-positive read() length");
-    }
-    auto bytes_read = read(iFd, iBufferEnd, iBuffer.end() - iBufferEnd);
-    if (!bytes_read){
-        fprintf(stderr, "EOF reached\n");
-        throw dlt_eof();
-    }
-    if (bytes_read < 0){
-        perror("Can't read");
-        throw dlt_io_error("Can't read()");
-    }
-    iBufferEnd += bytes_read;
-    //fprintf(stderr, "Read %ld bytes\n", bytes_read);
-    iPayloadBegin = nullptr;
-    iPayloadEnd = nullptr;
-    return offset;
+namespace{
+    constexpr int MSG_MAX_LEN{2000};
 }
 
-void DltReader::next(){
-    ensureBuffer(64);
-    const char* d = iCursor;
-    if (iExpectStorage)
-    {
-        d = fill_struct(d, d + 10, false, iStoragiExtendedHeader.magic, iStoragiExtendedHeader.ts_sec, iStoragiExtendedHeader.ts_msec, iStoragiExtendedHeader.ecu_id);
-        auto& m = iStoragiExtendedHeader.magic;
-        if (!(m[0] == 'D' && m[1] == 'L' && m[2] == 'T')){
+DltReader::DltReader(bool expectStorage)
+    : iClearStage{expectStorage?Stage::Storage:Stage::Basic}
+{
+}
+
+off_t DltReader::dataLeft(){
+    return iDataEnd - iCursor;
+}
+
+void DltReader::consumeMessage(){
+    if (iStage != Stage::Done){
+        throw std::runtime_error("Can't consume message, it was not fully received yet");
+    }
+    iStage = iClearStage;
+    iMessageBegin = iCursor;
+        
+}
+
+void DltReader::flush(){
+    auto shift = iMessageBegin - iBuffer.begin();
+    iDataEnd = std::copy(iMessageBegin, iDataEnd, iBuffer.begin());
+    iCursor -= shift;
+    iMessageBegin -= shift;
+}
+
+bool DltReader::read(){
+
+    if (iStage == Stage::Storage){
+        bool ok = fill_struct_if_possible(iCursor, iDataEnd, false,
+                                          iStorageHeader.magic,
+                                          iStorageHeader.ts_sec,
+                                          iStorageHeader.ts_msec,
+                                          iStorageHeader.ecu_id
+            );        
+        if (!ok){
+            return false;
+        }
+
+        auto& m = iStorageHeader.magic;
+        if (!std::equal(
+                m.begin(), m.end(),
+                storage_magic.begin(), storage_magic.end())){
             fprintf(stderr, "Magic mismatch!");
             throw dlt_corrupted("Magic mismatch!");
         }
+        //LOG("Read storage header, ts={}", iStorageHeader.ts_sec);
+        iStage = Stage::Basic;
     }
-//    assert(m[0] == 'D' && m[1] == 'L' && m[2] == 'T');
-    auto msg_begin = d;
-    d = read_bitmask(d, 0, iBasicHeader.version,
-        iBasicHeader.has_tmsp,
-        iBasicHeader.has_seid,
-        iBasicHeader.has_ecu_id,
-        iBasicHeader.big_endian,
-        iBasicHeader.use_ext
-    );
 
-    bool bigend = iBasicHeader.big_endian;
+    if (iStage == Stage::Basic){
+        // FIXME better "minimal size" value
+        if (dataLeft() < 4){
+            return false;
+        }
+        iBasicOffset = iCursor - iMessageBegin;
+        auto crs = iCursor;
+        crs = read_bitmask(crs, 0,
+                           iBasicHeader.version,
+                           iBasicHeader.has_tmsp,
+                           iBasicHeader.has_seid,
+                           iBasicHeader.has_ecu_id,
+                           iBasicHeader.big_endian,
+                           iBasicHeader.use_ext
+            );
 
-    d = fill_struct(d, nullptr, false, iBasicHeader.mcnt, iBasicHeader.msg_len);
-    if (iBasicHeader.has_ecu_id) d = fill_struct(d, nullptr, false, iBasicHeader.ecu_id);
-    if (iBasicHeader.has_seid) d = fill_struct(d, nullptr, false, iBasicHeader.seid);
-    if (iBasicHeader.has_tmsp) d = fill_struct(d, nullptr, false, iBasicHeader.tmsp);
+        bool bigend = iBasicHeader.big_endian;
+        optional_field ecu{
+            iBasicHeader.has_ecu_id, iBasicHeader.ecu_id};
+        optional_field seid{
+            iBasicHeader.has_seid, iBasicHeader.seid};
+        optional_field tmsp{
+            iBasicHeader.has_tmsp, iBasicHeader.tmsp};
+        bool ok = fill_struct_if_possible(
+            crs,
+            iDataEnd,
+            bigend,
+            iBasicHeader.mcnt,
+            iBasicHeader.msg_len,
+            ecu,
+            seid,
+            tmsp
+            );
 
-    // DLT_USER_BUF_MAX_SIZE + some extra bytes
-    if (iBasicHeader.msg_len > 1500){
-        throw dlt_corrupted("Message significantly exceeds DLT_USER_BUF_MAX_SIZE");
+        if (!ok){
+            return false;
+        }
+            
+        // DLT_USER_BUF_MAX_SIZE + some extra bytes
+        if (iBasicHeader.msg_len > MSG_MAX_LEN){
+            throw dlt_corrupted(fmt::format("Suspicious message length: {}", iBasicHeader.msg_len));
+        }
+
+        if (iBasicHeader.use_ext){
+            iStage = Stage::Extended;
+        } else {
+            iStage = Stage::Payload;
+        }
+        iCursor = crs;
+        iPayloadEndOffset = iBasicOffset + iBasicHeader.msg_len;
+        //LOG("Read basic header, len={}, ext={}", iBasicHeader.msg_len, (bool)iBasicHeader.use_ext);
+        // Here we already know where the end of payload is,
+        // therefore let's just wait until we get the full message
+        if (iDataEnd < iMessageBegin + iPayloadEndOffset)
+            return false;
     }
-    if (iBasicHeader.use_ext){
-        d = read_bitmask(
-            d, 0,
+
+    if (iStage == Stage::Extended){
+        // Here we should already have the whole message in the buffer.
+        // But let's be a bit paranoid, just in case
+        auto cur = iCursor;
+        cur = read_bitmask(
+            cur, 0,
             iExtendedHeader.mtin,
             iExtendedHeader.mtsp,
             iExtendedHeader.verbose
-        );
-        d = fill_struct(d, nullptr, false,
+            );
+        bool ok = fill_struct_if_possible(
+            cur, iDataEnd, false,
             iExtendedHeader.arg_count,
             iExtendedHeader.app,
             iExtendedHeader.ctx
-        );
-
-        std::string app(iExtendedHeader.app.begin(), 4);
-        std::string ctx(iExtendedHeader.ctx.begin(), 4);
-//        printf("v: %d, cnt: %d, %s:%s\n", (int)iExtendedHeader.verbose, (int)iExtendedHeader.arg_count, app.c_str(), ctx.c_str());
-
+            );
+        if (!ok){
+            throw std::runtime_error("Not enough data for extended header. This should never happen.");
+        }
+        //LOG("Extended header from {} to {}", iCursor - iMessageBegin, cur - iMessageBegin);
+        iCursor = cur;
+        iStage = Stage::Payload;
     }
-    auto msg_end = msg_begin + iBasicHeader.msg_len;
 
-    auto pl_offset = d - iCursor;
-    auto pl_end_offset = msg_end - iCursor;
+    if (iStage == Stage::Payload){
+        iPayloadOffset = iCursor - iMessageBegin;
+        //LOG("PL offset {}", iPayloadOffset);
+        if (iDataEnd < iMessageBegin + iPayloadEndOffset){
+            throw std::runtime_error("Not enough data for payload. This should never happen.");
+        }
+        iCursor = iMessageBegin + iPayloadEndOffset;
+        //LOG("Payload end, next char: {}", (int)*iCursor);
+        iStage = Stage::Done;
+    }
 
-    auto off = ensureBuffer(msg_end - iCursor);
-
-    iMessageBegin = iCursor;
-    iPayloadBegin = iCursor + pl_offset;
-    iCursor += pl_end_offset;
+    return iStage == Stage::Done;
 }
 
-bool DltReader::checkFilters(){
-    // No filters -- no filtering
-    if (iFilters.empty()){
-        return true;
+void DltReader::resetMessage(){
+    iCursor = iMessageBegin;
+    iStage = iClearStage;
+}
+    
+bool DltReader::findMagic(){
+    if (iCursor == iMessageBegin){
+        ++iCursor;
     }
-    // No extended header -> no app/ctx -> failed filter
-    if (!iBasicHeader.use_ext){
-        return false;
-    }
-
-    for (const auto& appctx: iFilters){
-        if (std::equal(appctx[0].begin(), appctx[0].end(), iExtendedHeader.app.begin())
-            && std::equal(appctx[1].begin(), appctx[1].end(), iExtendedHeader.ctx.begin())
-        ){
+    auto startCur = iCursor;
+    while (true){
+        if (dataLeft() < 4) return false;
+        if (std::equal(
+                storage_magic.begin(), storage_magic.end(),
+                iCursor, iCursor + 4)){
+            iMessageBegin = iCursor;
+            LOG("Magic found after {} bytes", iCursor - startCur);
             return true;
         }
+        ++iCursor;
+    }
+}
+
+FilteredDltReader::FilteredDltReader(
+    bool expectStorage,
+    const std::vector<MsgFilter>& filters,
+    bool verboseOnly)
+    : DltReader(expectStorage)
+    , iFilters(filters)
+    , iVerboseOnly(verboseOnly)
+    , iAutoRecover(expectStorage)
+{} 
+                                        
+
+bool FilteredDltReader::checkFilters(){
+    auto& basic = getBasic();
+    if (!basic.use_ext) return false;
+    auto& ext = getExtended();
+    if (iVerboseOnly && (!ext.verbose)) return false;
+    if (iFilters.empty()) return true;
+        
+    for (const auto& flt: iFilters){
+        if (flt(*this)) return true;
     }
     return false;
 }
-
-void DltReader::next_safe(){
-    while (1){
+    
+bool FilteredDltReader::readFiltered(){
+    while (1){      
         try{
-            next();
-            if (!checkFilters()){
-                continue;
+            while (read()){
+                if (checkFilters()) return true;
+                consumeMessage();
             }
-            break;
-        }
-        catch(const dlt_corrupted& ex){
-            auto off = iInputOffset + (iCursor - iBuffer.begin());
-
-            fprintf(stderr, "File corrupted (%s) (pos=%d, seq=%d,msglen=%d, end=%d, ver=%d, has_ext=%d), trying to recover...", 
-                ex.what(), (int)off, iBasicHeader.mcnt,
-                iBasicHeader.msg_len, iBasicHeader.big_endian.value, iBasicHeader.version.value, iBasicHeader.use_ext.value);
-            auto cur = iCursor;
-            ++iCursor;
-            while(1){
-                ensureBuffer(4);
-                if (std::equal(iCursor, iCursor + 4, dlt_magic)){
-                    fprintf(stderr, "Recovered after %d bytes\n", (int)(iCursor - cur));
-                    break;
+            return false;
+        } catch (const dlt_corrupted& ex){
+            if (iAutoRecover){
+                    
+                LOG("File is corrupted: {}, will try to recover", ex.what());
+                if (!findMagic()){
+                    LOG("End of buffer while looking for magic", "");
+                    return false;
                 }
-                ++iCursor;
+            } else {
+                LOG("File is corrupted, auto-recover is disabled/not possible", "");
+                throw;
             }
         }
     }
 }
 
-#include <boost/python.hpp>
-
-#include <bytesobject.h>
-using namespace boost::python;
-
-object pyGetStorageHeader(const DltReader& rdr){
-    auto& hdr = rdr.storageHdr();
-    dict ret;
-    ret["ecu"] = handle<>(PyBytes_FromStringAndSize(hdr.ecu_id.begin(), 4));
-    ret["ts_sec"] = hdr.ts_sec;
-    ret["ts_msec"] = hdr.ts_msec;
-    return ret;
-}
-
-object pyGetBasicHeader(const DltReader& rdr){
-    auto hdr = rdr.basicHdr();
-    dict ret;
-    if (hdr.has_tmsp.value){
-        ret["tmsp"] = hdr.tmsp;
+bool match(const std::array<char, 4>& id, const std::optional<std::array<char, 4>>& idFlt){
+    if (!idFlt) return true;
+    for (int i = 0; i < 4; i++){
+        if (id[i] != (*idFlt)[i]) return false;
+        if (id[i] == 0) break;
     }
-    return ret;
+    return true; 
 }
 
-void pySetFilters(DltReader& rdr, object filters){
-    std::vector<std::array<std::string, 2>> flt;
-    for (int i = 0; i < len(filters); i++){
-        flt.push_back({extract<std::string>(filters[i][0]), extract<std::string>(filters[i][1])});
-    }
-    rdr.setFilters(flt);
+bool MsgFilter::operator()(const DltReader& rdr) const{
+    auto& hdr = rdr.getBasic();
+    if (!hdr.use_ext) return false;
+    auto& ext = rdr.getExtended();
+        
+    return match(ext.app, app) && match(ext.ctx, ctx);
 }
-
-object pyGetExtHeader(const DltReader& rdr)
-{
-    auto hdr = rdr.extHdr();
-    if (!hdr){
-        return object();
-    }
-    dict ret;
-    ret["app"] = boost::python::handle<>(PyBytes_FromStringAndSize(hdr->app.begin(), 4));
-    ret["ctx"] = boost::python::handle<>(PyBytes_FromStringAndSize(hdr->ctx.begin(), 4));
-    ret["arg_count"] = hdr->arg_count;
-    ret["verbose"] = (bool)hdr->verbose.value;
-    return ret;
-}
-
-object pyGetPayload(const DltReader& rdr){
-    auto pbegin = rdr.payloadBegin();
-    auto pend = rdr.payloadEnd();
-    if (pbegin && pend){
-        return object(boost::python::handle<>(PyBytes_FromStringAndSize(pbegin, pend - pbegin)));
-    }
-    return object();
-}
-
-object pyGetRawMessage(const DltReader& rdr){
-    auto pbegin = rdr.messageBegin();
-    auto pend = rdr.payloadEnd();
-    if (pbegin && pend){
-        return object(boost::python::handle<>(PyBytes_FromStringAndSize(pbegin, pend - pbegin)));
-    }
-    return object();
-}
-
-
-void translate_eof(dlt_eof const &e)
-{
-    PyErr_SetString(PyExc_EOFError, e.what());
-}
-
-void translate_io(dlt_io_error const &e)
-{
-    PyErr_SetString(PyExc_IOError, e.what());
-}
-
-BOOST_PYTHON_MODULE(native_dltfile)
-{
-    class_<DltReader>("DltReader", init<int, bool>())
-        .def("next_safe", &DltReader::next_safe)
-        .def("ext_hdr", &pyGetExtHeader)
-        .def("basic_hdr", &pyGetBasicHeader)
-        .def("storage_hdr", &pyGetStorageHeader)
-        .def("raw_payload", &pyGetPayload)
-        .def("raw_message", &pyGetRawMessage)
-        .def("set_filters", &pySetFilters)
-        ;
-
-    class_<dlt_eof>("DltEof");
-
-    register_exception_translator<dlt_eof>(&translate_eof);
-    register_exception_translator<dlt_io_error>(&translate_io);
-}
-
-int main(){
-    int fd = open("/Users/equi/PycharmProjects/dltpy/data/park_crash_1_corrupted.dlt", O_RDONLY);
-    assert(fd);
-    DltReader r(fd, true);
-    for (int i = 0; i <= 100000; i++)
-    {
-        r.next_safe();
-    }
-    return 0;
-}
-
