@@ -15,7 +15,7 @@ def main():
     prs.add_argument('files', help='files to process', nargs='*')
 
     args = prs.parse_args()
-    filters = [tuple(flt.split(':')) for flt in args.filter] if args.filter else None
+    filters = [tuple([i or None for i in flt.split(':')]) for flt in args.filter] if args.filter else None
     logging.warning("Filters: %s", filters)
 
     current_ts = 0
@@ -28,21 +28,23 @@ def main():
         logging.warning("LC split with threshold %.1f sec", ts_threshold) 
 
     for fn in args.files:
-        dlt = df.DltFile(fn, filters, True)
-        for msg in dlt:
-            assert isinstance(msg, df.DltMessage)
-            if (msg.ts - current_ts < -ts_threshold and args.lifecycle_split) or out_fd is None:
-                if not out_fd is None:
-                    out_fd.close()
+        with open(fn, 'rb') as fd:
+            dlt = df.DltReader(fd, filters, expect_storage_header=True)
+            for msg in dlt:
+                # print(msg)
+                assert isinstance(msg, df.DltMessage)
+                if (msg.ts - current_ts < -ts_threshold and args.lifecycle_split) or out_fd is None:
+                    if not out_fd is None:
+                        out_fd.close()
 
-                out_fn = out_fn_base
-                if args.lifecycle_split:
-                    out_fn = out_fn_base.parent / ('%s%02d%s' % (out_fn_base.stem, out_fn_counter, out_fn_base.suffix))
-                    out_fn_counter += 1
+                    out_fn = out_fn_base
+                    if args.lifecycle_split:
+                        out_fn = out_fn_base.parent / ('%s%02d%s' % (out_fn_base.stem, out_fn_counter, out_fn_base.suffix))
+                        out_fn_counter += 1
 
-                out_fd = out_fn.open('wb')
-            current_ts = msg.ts
-            out_fd.write(msg._raw_data)
+                    out_fd = out_fn.open('wb')
+                current_ts = msg.ts
+                out_fd.write(msg._raw_data)
 
     out_fd.close()
 
