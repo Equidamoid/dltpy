@@ -16,22 +16,25 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from dltpy import dltfile
 import argparse
 import logging
+
+from dltpy import dltfile
+from dltpy import cli_common
 
 def main():
     prs = argparse.ArgumentParser()
     prs.add_argument('-f', '--filter', help="Add a filter in for of 'APP:CTX'", nargs='*')
     prs.add_argument('file', nargs=1)
+    cli_common.setup_logs()
     args = prs.parse_args()
     fn = args.file[0]
-    filters = [tuple([i or None for i in flt.split(':')]) for flt in args.filter] if args.filter else None
+    filters = cli_common.parse_filters(args.filter)
     logging.warning("Will print file %s with filters: %s", fn, filters)
     with open(fn, 'rb') as fd:
-        dltf = dltfile.DltFile(fd, filters)
+        dltf = dltfile.DltReader(fd.readinto, filters)
         for dm in dltf:
-            print('[%9.4f]\t%4s:%4s\t%s' % (dm.ts, dm.app, dm.ctx, dm.human_friendly_payload))
+            print(cli_common.message_str(dm))
 
 if __name__ == '__main__':
     main()

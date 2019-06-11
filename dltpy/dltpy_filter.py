@@ -1,22 +1,21 @@
 #! /usr/bin/env python3
 import argparse
 import dltpy.dltfile as df
+from dltpy import cli_common
 from pathlib import Path
 import logging
 
 
 def main():
-    logging.basicConfig(format='%(asctime)s - %(message)s')
     prs = argparse.ArgumentParser()
-    prs.add_argument('-f', '--filter', help="Messages pick, 'APP:CTX'", nargs='*')
+    prs.add_argument('-f', '--filter', help="Messages to pick, 'APP:CTX'", nargs='*')
     prs.add_argument('-s', '--lifecycle-split', action='store_true')
     prs.add_argument('--lifecycle-threshold', type=float, default=30)
     prs.add_argument('-o', '--output')
     prs.add_argument('files', help='files to process', nargs='*')
-
+    cli_common.setup_logs()
     args = prs.parse_args()
-    filters = [tuple([i or None for i in flt.split(':')]) for flt in args.filter] if args.filter else None
-    logging.warning("Filters: %s", filters)
+    filters = cli_common.parse_filters(args.filter)
 
     current_ts = 0
     ts_threshold = args.lifecycle_threshold
@@ -28,10 +27,10 @@ def main():
         logging.warning("LC split with threshold %.1f sec", ts_threshold) 
 
     for fn in args.files:
-        with open(fn, 'rb') as fd:
-            dlt = df.DltReader(fd, filters, expect_storage_header=True)
+        logging.info("Processing %s", fn)
+        with open(fn, 'rb') as f:
+            dlt = df.DltReader(f.readinto, filters)
             for msg in dlt:
-                # print(msg)
                 assert isinstance(msg, df.DltMessage)
                 if (msg.ts - current_ts < -ts_threshold and args.lifecycle_split) or out_fd is None:
                     if not out_fd is None:
@@ -46,7 +45,10 @@ def main():
                 current_ts = msg.ts
                 out_fd.write(msg._raw_data)
 
-    out_fd.close()
+    if out_fd is None:
+        logging.warning("No records written!")
+    else:
+        out_fd.close()
 
 if __name__ == '__main__':
     main()

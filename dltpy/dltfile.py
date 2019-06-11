@@ -14,27 +14,26 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from pathlib import Path
-from dltpy.gen.stored_message import StoredMessage
 from dltpy.gen.payload_item import PayloadItem
 from binascii import hexlify
 import dltpy.native.native_dltreader
 import logging
 import io
 import typing
-import os
 
 logger = logging.getLogger(__name__)
 
 
-def hex(v):
+def as_hex(v):
     return hexlify(v).decode()
+
 
 def get_value(p: PayloadItem):
     for i in 'str', 'uint', 'sint', 'float', 'bool':
         if hasattr(p, i):
             return getattr(p, i)
     return None
+
 
 def parse_payload(pl: bytes):
     s = io.BytesIO(pl)
@@ -44,7 +43,7 @@ def parse_payload(pl: bytes):
         item: PayloadItem = PayloadItem.from_io(s)
         value = get_value(item)
         if value is None:
-            logger.error("Can't parse payload %s at offset %d", hex(pl), start)
+            logger.error("Can't parse payload %s at offset %d", as_hex(pl), start)
             return None
         if isinstance(value, PayloadItem.SizedString):
             value = value.data
@@ -56,22 +55,23 @@ def parse_payload(pl: bytes):
         ret.append(value)
     return ret
 
+
 class DltMessage:
-    def __init__(self, raw: dltpy.native.native_dltreader.DltReader, raw_data: bytes = None, native=False):
+    def __init__(self, reader: dltpy.native.native_dltreader.DltReader, have_storage_hdr=False):
         self.app: str = None
         self.ctx: str = None
         self.ts: float = None
         self.date: float = None
         self.verbose: bool = None
-        self.raw_payload: bytes = None
-        self._payload_cache = None
-        self._raw_data = raw_data
-        self.loadn(raw)
 
-    def loadn(self, raw: dltpy.native.native_dltreader.DltReader):
-        ehdr = raw.get_extended()
-        bhdr = raw.get_basic()
-        shdr = raw.get_storage()
+        self._raw_payload: bytes = None
+        self._payload_cache = None
+        self._raw_data = None
+        self._load(reader, have_storage_hdr)
+
+    def _load(self, reader: dltpy.native.native_dltreader.DltReader, have_storage_hdr: bool):
+        ehdr = reader.get_extended()
+        bhdr = reader.get_basic()
         if ehdr:
             self.app = ehdr['app'].replace(b'\0', b'').decode()
             self.ctx = ehdr['ctx'].replace(b'\0', b'').decode()
@@ -81,14 +81,16 @@ class DltMessage:
         if ts:
             self.ts = 1e-4 * ts
 
-        self.date = shdr['ts_sec'] + shdr['ts_msec'] * 1e-3
-        self.raw_payload = bytes(raw.get_payload())
+        if have_storage_hdr:
+            shdr = reader.get_storage()
+            self.date = shdr['ts_sec'] + shdr['ts_msec'] * 1e-6
 
-        # todo memory view
-        self._raw_data = bytes(raw.get_message())
+        # the memory views will be invalidated when the next message is parsed, so need to copy them to a bytes object
+        self._raw_payload = bytes(reader.get_payload())
+        self._raw_data = bytes(reader.get_message())
 
     def __str__(self):
-        return 'DltMsg(%s,%s:%s,)' % (self.ts, self.app, self.ctx)
+        return 'DltMsg(%.4f,%s:%s)' % (self.ts, self.app, self.ctx)
 
     def match(self, filters: typing.List[typing.Tuple[str, str]]):
         for app, ctx in filters:
@@ -99,7 +101,7 @@ class DltMessage:
     @property
     def payload(self):
         if self._payload_cache is None:
-            self._payload_cache = parse_payload(self.raw_payload)
+            self._payload_cache = parse_payload(self._raw_payload)
         return self._payload_cache
 
     @property
@@ -118,26 +120,26 @@ class DltMessage:
 
 
 class DltReader:
-    def __init__(self, fd, filters=None, capure_raw=False, expect_storage_header=True):
+    def __init__(self, reader, filters=None, capure_raw=False, expect_storage_header=True):
         #TODO optional capture_raw
         filters = filters or []
-        self.fd = fd
+        self.reader = reader
         self.capture_raw = capure_raw
+        logger.info("Constructing reader, storage=%s, filters=%r", expect_storage_header, filters)
         self.rdr = dltpy.native.native_dltreader.DltReader(expect_storage_header, filters)
+        self._storage_hdr = expect_storage_header
 
     def get_next_message(self):
         while not self.rdr.read():
             buf = self.rdr.get_buffer()
-            logger.warning("Buffer to be read: %d", len(buf))
-            l = self.fd.readinto(buf)
+            l = self.reader(buf)
+            logger.debug("Read %d bytes to a buffer of %d", l, len(buf))
             if not l:
-                logger.warning("readinto returned 0, EOF")
                 return None
             self.rdr.update_buffer(l)
-        m = DltMessage(self.rdr, None, True)
+        m = DltMessage(self.rdr, have_storage_hdr=self._storage_hdr)
         self.rdr.consume_message()
         return m
-
 
     def __iter__(self) -> DltMessage:
         while True:
@@ -147,60 +149,3 @@ class DltReader:
             if not ret.verbose:
                 continue
             yield ret
-
-
-class DltFile:
-    def __init__(self, fn: Path, filters: typing.List[typing.Tuple[str, str]] = None, capture_raw=False):
-        if not isinstance(fn, Path):
-            fn = Path(fn)
-        self._fn = fn
-        self._f_len = fn.stat().st_size
-        self.fd = fn.open('rb')
-        self.filters = filters
-        self._capture_raw = capture_raw
-
-
-    def get_next_message(self) -> DltMessage:
-        ret = None
-        while self.fd.tell() != self._f_len:
-            start_offset = self.fd.tell()
-            try:
-                sm = StoredMessage.from_io(self.fd)
-            except:
-                logger.exception("Can't parse message at offset %d, will try to recover", start_offset)
-                start_offset += 1
-                while start_offset < self._f_len:
-                    self.fd.seek(start_offset)
-                    buf = self.fd.read(4)
-                    if buf == b'DLT\x01':
-                        logger.warning("DLT signature found at offset %d, continue", start_offset)
-                        self.fd.seek(start_offset)
-                        break
-                    else:
-                        start_offset += 1
-                continue
-            raw_data = None
-            if self._capture_raw:
-                end_offset = self.fd.tell()
-                self.fd.seek(start_offset)
-                raw_data = self.fd.read(end_offset - start_offset)
-                self.fd.seek(end_offset)
-            msg = DltMessage(sm, raw_data)
-            if msg.verbose:
-                if not self.filters is None:
-                    if not msg.match(self.filters):
-                        continue
-                ret = msg
-                break
-
-        return ret
-
-    def __iter__(self) -> DltMessage:
-        while True:
-            ret = self.get_next_message()
-            if ret is None:
-                return
-            yield ret
-
-if True:
-    DltFile = DltReader

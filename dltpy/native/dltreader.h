@@ -17,7 +17,7 @@
 #include "headers.h"
 #include <vector>
 #include <optional>
-
+#include <tuple>
 class dlt_corrupted: public std::runtime_error{
 public:
     using std::runtime_error::runtime_error;
@@ -62,6 +62,8 @@ class DltReader{
 	    throw std::runtime_error("Not ready yet. Give me more data!");
 	}
     }
+    void selfcheck();
+    std::string str();
 public:
     DltReader(bool expectStorage);
     DltReader(const DltReader&) = delete;

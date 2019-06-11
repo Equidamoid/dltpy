@@ -1,3 +1,4 @@
+
 // This file is part of pydlt
 // Copyright 2019  Vladimir Shapranov
 //
@@ -32,12 +33,63 @@
 const std::array<char, 4> storage_magic{'D', 'L', 'T', '\x01'};
 
 namespace{
-    constexpr int MSG_MAX_LEN{2000};
+    // Maximal "realistic" message size.
+    // Sometimes I get corrupted logs (with a piece of data missing in the middle),
+    // and they have to be processed.
+    // Now, about the number. As far as I can see, DLT uses a single pipe to get messages from all the clients.
+    // This way we get message lenght limited by PIPE_BUF, an "atomic write length" in a pipe.
+    // Limiting message size by 4200 allows to process the longest possible messages while giving a decent 93%
+    // chance to detect a corrupted message and start recovering by looking for a storage signature.
+
+    // This doesn't make sence when you're listening from a socket (not storage header with magic), so
+    // TODO: disable when storage header is not available
+    // TODO: change/disable the constant at run/compile time for those lucky ones whose systems can collect logs properly
+    constexpr int MSG_MAX_LEN{4200};
 }
+
+template<class It>
+std::string hex(const It& s, const It& e, off_t maxlen=256){
+    std::string ret = "'";
+    off_t cnt = 0;
+    for (auto i=s; i < e; i++){
+        uint8_t ch = *i;
+        if (ch >= 0x20 && ch < 0x80){
+            if (ch == '\\'){
+                ret += "\\\\";
+            } else {
+                ret += (char) *i;
+            }
+        } else {
+            ret += fmt::format("\\x{:02x}", (uint8_t) *i);
+        }
+        ++cnt;
+        if (cnt == maxlen){
+            ret += "(...)";
+            break;
+        }
+    }
+    ret += "'";
+    return ret;
+}
+
+
 
 DltReader::DltReader(bool expectStorage)
     : iClearStage{expectStorage?Stage::Storage:Stage::Basic}
 {
+}
+
+std::string DltReader::str(){
+    return fmt::format("DltReader(buf={:p}, msg={:p}, data end={:p})",
+                       iBuffer.begin(),
+                       iMessageBegin,
+                       iDataEnd
+        );
+}
+
+void DltReader::selfcheck(){
+    assert(iMessageBegin >= iBuffer.begin() && iMessageBegin <= iDataEnd);
+    assert(iDataEnd >= iBuffer.begin() && iDataEnd <= iBuffer.end());
 }
 
 off_t DltReader::dataLeft(){
@@ -45,25 +97,28 @@ off_t DltReader::dataLeft(){
 }
 
 void DltReader::consumeMessage(){
+    selfcheck();
     if (iStage != Stage::Done){
         throw std::runtime_error("Can't consume message, it was not fully received yet");
     }
     iStage = iClearStage;
     iMessageBegin = iCursor;
-        
+    selfcheck();    
 }
 
 void DltReader::flush(){
+    selfcheck();
     auto shift = iMessageBegin - iBuffer.begin();
     iDataEnd = std::copy(iMessageBegin, iDataEnd, iBuffer.begin());
     iCursor -= shift;
     iMessageBegin -= shift;
+    selfcheck();
 }
 
 bool DltReader::read(){
 
     if (iStage == Stage::Storage){
-        bool ok = fill_struct_if_possible(iCursor, iDataEnd, false,
+        bool ok = fill_struct_if_possible(iCursor, iDataEnd, true,
                                           iStorageHeader.magic,
                                           iStorageHeader.ts_sec,
                                           iStorageHeader.ts_msec,
@@ -110,7 +165,7 @@ bool DltReader::read(){
         bool ok = fill_struct_if_possible(
             crs,
             iDataEnd,
-            bigend,
+            false,
             iBasicHeader.mcnt,
             iBasicHeader.msg_len,
             ecu,
@@ -122,11 +177,15 @@ bool DltReader::read(){
             return false;
         }
             
-        // DLT_USER_BUF_MAX_SIZE + some extra bytes
+        // Sanity check.
         if (iBasicHeader.msg_len > MSG_MAX_LEN){
+            LOG("Corrupted message: {} ({} bytes)", hex(iMessageBegin, crs), crs - iMessageBegin);
             throw dlt_corrupted(fmt::format("Suspicious message length: {}", iBasicHeader.msg_len));
         }
 
+        if (iBasicHeader.version.value != 1){
+            throw dlt_corrupted(fmt::format("Unsupported message version: {}", iBasicHeader.version.value));
+        }
         if (iBasicHeader.use_ext){
             iStage = Stage::Extended;
         } else {
@@ -169,7 +228,7 @@ bool DltReader::read(){
         iPayloadOffset = iCursor - iMessageBegin;
         //LOG("PL offset {}", iPayloadOffset);
         if (iDataEnd < iMessageBegin + iPayloadEndOffset){
-            throw std::runtime_error("Not enough data for payload. This should never happen.");
+            return false;
         }
         iCursor = iMessageBegin + iPayloadEndOffset;
         //LOG("Payload end, next char: {}", (int)*iCursor);
