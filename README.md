@@ -23,7 +23,7 @@ TODO: upload to pypi
 #### Using
 
 There are 3 commandline utilities that demonstrate usage of the library:
- - `dltpy-dump` prints specified .dlt file as plain text. "text-like" payloads are decoded and printed as text, others are `repr()`ed
+ - `dltpy-print` prints specified .dlt file as plain text. "text-like" payloads are decoded and printed as text, others are `repr()`ed
  - `dltpy-filter` filters out unneeded boring messages. Run it with `-f IDS:OF YOUR:APPS` and enjoy tiny logs that take seconds to load.
  - `dltpy-receive` demonstrates reading from a socket, like `dlt-receive`. The main difference is that it gracefully reconnects if, for example, your device reboots.
 

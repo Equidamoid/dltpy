@@ -63,7 +63,7 @@ setup(
     entry_points={
         'console_scripts': [
             'dltpy-filter=dltpy.dltpy_filter:main',
-            'dltpy-dump=dltpy.dltpy_dump:main',
+            'dltpy-print=dltpy.dltpy_print:main',
             'dltpy-receive=dltpy.dltpy_receive:main',
         ],
     },
