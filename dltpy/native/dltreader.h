@@ -110,8 +110,10 @@ public:
 	readyOrThrow();
 	return {iMessageBegin, iPayloadEndOffset};
     }
-	
-	
+
+    bool rawStream() const {
+        return iClearStage != Stage::Storage;
+    }	
 	
 };
 

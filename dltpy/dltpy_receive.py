@@ -63,13 +63,13 @@ class AsyncReceiver:
 
                     while self._alive:
                         while reader.read():
-                            msg = df.DltMessage(reader, False)
+                            msg = df.DltMessage(reader)
                             reader.consume_message()
 
                             t = time.time()
                             storage_hdr = b'DLT\x01' + struct.pack('II', int(t), int(1e6 * (t - int(t)))) + b'ECU0'
                             out.write(storage_hdr)
-                            out.write(msg._raw_data)
+                            out.write(msg.raw_message)
 
                         buf = reader.get_buffer()
 

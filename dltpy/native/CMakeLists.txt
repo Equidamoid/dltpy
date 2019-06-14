@@ -10,7 +10,7 @@
 # GNU General Public License for more details.
 
 project(native_dltreader)
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.10)
 find_package(Boost REQUIRED
     COMPONENTS
         python3

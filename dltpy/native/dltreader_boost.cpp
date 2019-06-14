@@ -27,6 +27,9 @@ auto pyArrayStringToBytes(const std::array<char, N>& arr){
 }
 
 object pyGetStorageHeader(const FilteredDltReader& rdr){
+    if (rdr.rawStream()){
+        return object();
+    }
     auto& hdr = rdr.getStorage();
     dict ret;
     ret["ecu"] = pyArrayStringToBytes(hdr.ecu_id);

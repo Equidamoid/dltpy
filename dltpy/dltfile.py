@@ -57,7 +57,7 @@ def parse_payload(pl: bytes):
 
 
 class DltMessage:
-    def __init__(self, reader: dltpy.native.native_dltreader.DltReader, have_storage_hdr=False):
+    def __init__(self, reader: dltpy.native.native_dltreader.DltReader):
         self.app: str = None
         self.ctx: str = None
         self.ts: float = None
@@ -67,9 +67,9 @@ class DltMessage:
         self._raw_payload: bytes = None
         self._payload_cache = None
         self._raw_data = None
-        self._load(reader, have_storage_hdr)
+        self._load(reader)
 
-    def _load(self, reader: dltpy.native.native_dltreader.DltReader, have_storage_hdr: bool):
+    def _load(self, reader: dltpy.native.native_dltreader.DltReader):
         ehdr = reader.get_extended()
         bhdr = reader.get_basic()
         if ehdr:
@@ -81,8 +81,8 @@ class DltMessage:
         if ts:
             self.ts = 1e-4 * ts
 
-        if have_storage_hdr:
-            shdr = reader.get_storage()
+        shdr = reader.get_storage()
+        if shdr is not None:
             self.date = shdr['ts_sec'] + shdr['ts_msec'] * 1e-6
 
         # the memory views will be invalidated when the next message is parsed, so need to copy them to a bytes object
@@ -118,6 +118,10 @@ class DltMessage:
                 pass
         return pl
 
+    @property
+    def raw_message(self):
+        return self._raw_data
+
 
 class DltReader:
     def __init__(self, reader, filters=None, capure_raw=False, expect_storage_header=True):
@@ -127,7 +131,6 @@ class DltReader:
         self.capture_raw = capure_raw
         logger.info("Constructing reader, storage=%s, filters=%r", expect_storage_header, filters)
         self.rdr = dltpy.native.native_dltreader.DltReader(expect_storage_header, filters)
-        self._storage_hdr = expect_storage_header
 
     def get_next_message(self):
         while not self.rdr.read():
@@ -137,7 +140,7 @@ class DltReader:
             if not l:
                 return None
             self.rdr.update_buffer(l)
-        m = DltMessage(self.rdr, have_storage_hdr=self._storage_hdr)
+        m = DltMessage(self.rdr)
         self.rdr.consume_message()
         return m
 
