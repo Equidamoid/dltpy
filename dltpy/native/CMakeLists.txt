@@ -35,7 +35,7 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     ${Boost_LIBRARIES}
     ${PYTHON_LIBRARY}
-    fmt::fmt-header-only
+    fmt::fmt
 )
 set_target_properties(
     ${PROJECT_NAME}
