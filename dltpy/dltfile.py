@@ -68,6 +68,7 @@ class DltMessage:
         self._payload_cache = None
         self._raw_data = None
         self._load(reader)
+        self.human_friendly_override = None
 
     def _load(self, reader: dltpy.native.native_dltreader.DltReader):
         ehdr = reader.get_extended()
@@ -106,6 +107,9 @@ class DltMessage:
 
     @property
     def human_friendly_payload(self):
+        if self.human_friendly_override is not None:
+            return self.human_friendly_override
+
         pl = self.payload
         if pl and len(pl) == 1 and isinstance(pl[0], bytes):
             pl = pl[0]

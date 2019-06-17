@@ -21,18 +21,23 @@ import logging
 
 from dltpy import dltfile
 from dltpy import cli_common
+from dltpy.transforms import apply_transforms
 
 def main():
     prs = argparse.ArgumentParser()
     prs.add_argument('-f', '--filter', help="Add a filter in for of 'APP:CTX'", nargs='*')
+    prs.add_argument('-t', '--transform', help="Use a transform module", nargs='*')
     prs.add_argument('file', nargs=1)
     cli_common.setup_logs()
     args = prs.parse_args()
     fn = args.file[0]
     filters = cli_common.parse_filters(args.filter)
+    transforms = cli_common.load_transforms(args.transform)
+
     logging.warning("Will print file %s with filters: %s", fn, filters)
     with open(fn, 'rb') as fd:
         dltf = dltfile.DltReader(fd.readinto, filters)
+        dltf = apply_transforms(dltf, transforms)
         for dm in dltf:
             print(cli_common.message_str(dm))
 
