@@ -50,7 +50,7 @@ class build_ext_cmake(build_ext):
 
 setup(
     name='dltpy',
-    version='0.3.3.1',
+    version='0.3.4',
     description='Pyre-python reader for DLT log files',
     long_description=Path('README.md').read_text(),
     long_description_content_type="text/markdown",

@@ -15,7 +15,9 @@ def apply_transforms(
                 logger.error("Filter failed on %s %r", msg, msg.payload)
                 raise
             if msg is None:
-                logger.warning("Message consumed by a filter")
-                continue
-        yield msg
+                break
+        if msg is None:
+            logger.warning('Message consumed by a transform')
+        else:
+            yield msg
 
