@@ -47,7 +47,6 @@ class build_ext_cmake(build_ext):
             self.spawn(['cmake', '--build', '.'] + build_args)
         os.chdir(str(cwd))
 
-
 setup(
     name='dltpy',
     version='0.3.4',
@@ -77,6 +76,5 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
-
     ]
 )
