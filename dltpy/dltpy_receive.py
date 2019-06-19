@@ -56,7 +56,7 @@ class AsyncReceiver:
                 try:
                     self._socket = socket.socket()
                     self._socket.settimeout(0)
-
+                    self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
                     await asyncio.wait_for(loop.sock_connect(self._socket, self._address), self.connect_timeout)
                     logger.info("Connected to %s", self._address)
                     reader = DltReader(False, self._filters)
