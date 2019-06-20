@@ -7,6 +7,7 @@ import time
 import typing
 import socket
 import asyncio
+import sys
 from pathlib import Path
 from dltpy.native.native_dltreader import DltReader
 
@@ -57,6 +58,12 @@ class AsyncReceiver:
                     self._socket = socket.socket()
                     self._socket.settimeout(0)
                     self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                    if sys.platform.startswith('linux'):
+                        # More keepalive config: start after 2 sec, send every 5 sec, fail after 3 missing responses
+                        self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 2)
+                        self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 5)
+                        self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
+
                     await asyncio.wait_for(loop.sock_connect(self._socket, self._address), self.connect_timeout)
                     logger.info("Connected to %s", self._address)
                     reader = DltReader(False, self._filters)

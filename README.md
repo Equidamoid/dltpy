@@ -18,7 +18,6 @@ git clone git+https://github.com/Equidamoid/dltpy
 (cd dltpy; git checkout native-dltreader)
 pip install --user ./dltpy
 ```
-TODO: upload to pypi
 
 #### Using
 
