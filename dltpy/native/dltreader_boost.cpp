@@ -80,7 +80,7 @@ void translate_io(dlt_io_error const &e)
 object pyGetBuffer(FilteredDltReader& rdr){
     auto buf = (rdr).getBuffer();
     boost::python::object memview(
-	boost::python::handle<>(PyMemoryView_FromMemory(std::get<0>(buf), std::get<1>(buf), PyBUF_WRITE)));
+        boost::python::handle<>(PyMemoryView_FromMemory(std::get<0>(buf), std::get<1>(buf), PyBUF_WRITE)));
     return memview;
 
 }
@@ -96,7 +96,7 @@ std::array<char, N> to_array(const std::string& str){
 template<size_t N>
 std::optional<std::array<char, N>> to_optional_array(object obj){
     if (obj.is_none()){
-	return std::nullopt;
+        return std::nullopt;
     }
     std::string str = extract<std::string>(obj);
     return to_array<N>(str);
@@ -131,18 +131,18 @@ BOOST_PYTHON_MODULE(native_dltreader)
     class_<MsgFilter>("MsgFilter");
     
     class_<FilteredDltReader, boost::noncopyable>("DltReader", no_init)
-	.def("__init__", make_constructor(&pyMakeReader))
-	.def("read", &FilteredDltReader::readFiltered)
-	.def("get_buffer", &pyGetBuffer)
-	.def("get_payload", &pyGetPayload)
-	.def("get_message", &pyGetMessage)
-	.def("get_basic", &pyGetBasicHeader)
-	.def("get_extended", &pyGetExtHeader)
-	.def("get_storage", &pyGetStorageHeader)
-	.def("consume_message", &DltReader::consumeMessage)
-	.def("update_buffer", &DltReader::updateBuffer)
-	.def("find_magic", &DltReader::findMagic)
-	;
+        .def("__init__", make_constructor(&pyMakeReader))
+        .def("read", &FilteredDltReader::readFiltered)
+        .def("get_buffer", &pyGetBuffer)
+        .def("get_payload", &pyGetPayload)
+        .def("get_message", &pyGetMessage)
+        .def("get_basic", &pyGetBasicHeader)
+        .def("get_extended", &pyGetExtHeader)
+        .def("get_storage", &pyGetStorageHeader)
+        .def("consume_message", &DltReader::consumeMessage)
+        .def("update_buffer", &DltReader::updateBuffer)
+        .def("find_magic", &DltReader::findMagic)
+        ;
 
     def("get_buffer", &pyGetBuffer);
     def("set_logger", &pySetLogger);
