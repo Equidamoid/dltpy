@@ -107,20 +107,23 @@ auto pyMakeReader(bool storage, list flt){
     std::vector<MsgFilter> filters;
     LOG("makeReader(storage={})", storage);
     for (int i = 0; i < fltLen; i++){
-	object f = flt[i];
-	filters.push_back({
-		to_optional_array<4>(f[0]),
-		to_optional_array<4>(f[1])});
-//	LOG("Adding filter {}:{}", app, ctx);
-	
+        object f = flt[i];
+        filters.push_back({
+                to_optional_array<4>(f[0]),
+                to_optional_array<4>(f[1])});
     }
     return boost::shared_ptr<FilteredDltReader>(new FilteredDltReader(storage, filters));
 }
 
 void pySetLogger(object logger){
     log_printer = [logger](const std::string& line){
-		      logger.attr("warning")(line);
-		  };
+                      logger.attr("warning")(line);
+                  };
+}
+
+void translate_corrupted(dlt_corrupted const &e)
+{
+    PyErr_SetString(PyExc_ValueError, e.what());
 }
 
 BOOST_PYTHON_MODULE(native_dltreader)
@@ -147,5 +150,6 @@ BOOST_PYTHON_MODULE(native_dltreader)
 
     register_exception_translator<dlt_eof>(&translate_eof);
     register_exception_translator<dlt_io_error>(&translate_io);
+    register_exception_translator<dlt_corrupted>(&translate_corrupted);
 }
 
