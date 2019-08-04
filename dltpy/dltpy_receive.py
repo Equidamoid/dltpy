@@ -13,6 +13,7 @@ from dltpy.native.native_dltreader import DltReader
 
 logger = logging.getLogger(__name__)
 
+
 class AsyncReceiver:
     """
     An example of asyncio integration and direct use of the native reader.
@@ -95,11 +96,13 @@ class AsyncReceiver:
                 except IOError as ex:
                     exc_log("Something went wrong (%s), will try to reconnect.", ex)
                     await asyncio.sleep(self.connect_timeout)
+                except ValueError as ex:
+                    exc_log("Something went wrong (%s), not an IO problem, reconnecting immediately.", ex)
                 finally:
                     if self._socket:
                         self._socket.close()
 
-    async def stop(self):
+    def stop(self):
         self._alive = False
 
 
