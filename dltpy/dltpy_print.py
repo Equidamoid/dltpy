@@ -27,6 +27,7 @@ def main():
     prs = argparse.ArgumentParser()
     prs.add_argument('-f', '--filter', help="Add a filter in for of 'APP:CTX'", nargs='*')
     prs.add_argument('-t', '--transform', help="Use a transform module", nargs='*')
+    prs.add_argument('--raw', action='store_true')
     prs.add_argument('file', nargs=1)
     cli_common.setup_logs()
     args = prs.parse_args()
@@ -36,10 +37,14 @@ def main():
 
     logging.warning("Will print file %s with filters: %s", fn, filters)
     with open(fn, 'rb') as fd:
-        dltf = dltfile.DltReader(fd.readinto, filters)
+        dltf = dltfile.DltReader(fd.readinto, filters, expect_storage_header=not args.raw)
         dltf = apply_transforms(dltf, transforms)
         for dm in dltf:
-            print(cli_common.message_str(dm))
+            try:
+                print(cli_common.message_str(dm))
+            except Exception as ex:
+                logging.exception("Failed to parse")
+                print("ERROR: %s" % ex)
 
 if __name__ == '__main__':
     main()
