@@ -49,7 +49,7 @@ class build_ext_cmake(build_ext):
 
 setup(
     name='dltpy',
-    version='0.3.5.0',
+    version='0.3.5.1',
     description='Pyre-python reader for DLT log files',
     long_description=Path('README.md').read_text(),
     long_description_content_type="text/markdown",
