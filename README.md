@@ -15,7 +15,6 @@ As a funny fact, due to stricter filtering `dltpy-dump` is even faster than `dlt
 ##### Installation
 ```
 git clone git+https://github.com/Equidamoid/dltpy
-(cd dltpy; git checkout native-dltreader)
 pip install --user ./dltpy
 ```
 
