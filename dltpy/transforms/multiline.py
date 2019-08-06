@@ -41,7 +41,7 @@ class MultilineTransform:
             self._pending[ml_id].buffer += msg.payload[3]
             return None
         if mt == b'NWEN':
-            msg._payload_cache = b'', self._pending[ml_id].buffer
+            msg._decoded_payload = b'', self._pending[ml_id].buffer
         return msg
 
 def transform():

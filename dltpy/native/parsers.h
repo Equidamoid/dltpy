@@ -52,10 +52,10 @@ struct filler<T, typename std::enable_if<std::is_integral<T>::value>::type>{
 template<class T>
 struct filler<optional_field<T>>{
     static size_t fill(const char* begin, bool bigend, optional_field<T> dest){
-	if (dest.present){
-	    return filler<T>::fill(begin, bigend, dest.field);
-	}
-	return 0;
+        if (dest.present){
+            return filler<T>::fill(begin, bigend, dest.field);
+        }
+        return 0;
     }
 };
 
@@ -110,11 +110,11 @@ bool fill_struct_if_possible(const char*& begin, const char* end, bool big_end, 
     auto size = args_size<Args...>(args...);
     auto expected_end = begin + size;
     if (end < expected_end){
-	return false;
+        return false;
     }
     auto ret = fill_struct(begin, end, big_end, args...);
     if (ret != expected_end){
-	throw std::runtime_error("Size mismatch, something really bad happened in fill_struct");
+        throw std::runtime_error("Size mismatch, something really bad happened in fill_struct");
     }
     begin = ret;
     return true;

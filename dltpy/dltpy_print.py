@@ -23,11 +23,16 @@ from dltpy import dltfile
 from dltpy import cli_common
 from dltpy.transforms import apply_transforms
 
+
 def main():
     prs = argparse.ArgumentParser()
-    prs.add_argument('-f', '--filter', help="Add a filter in for of 'APP:CTX'", nargs='*')
-    prs.add_argument('-t', '--transform', help="Use a transform module", nargs='*')
-    prs.add_argument('--raw', action='store_true')
+    prs.add_argument('-f', '--filter', nargs='*',
+                     help="Add a filter in for of 'APP:CTX'")
+    prs.add_argument('-t', '--transform', nargs='*',
+                     help="Use a transform module")
+    prs.add_argument('--raw', action='store_true',
+                     help="Don't expect storage headers. "
+                          "Useful for things like 'socat tcp:host:port stdout | dltpy-print --raw'")
     prs.add_argument('file', nargs=1)
     cli_common.setup_logs()
     args = prs.parse_args()
@@ -45,6 +50,7 @@ def main():
             except Exception as ex:
                 logging.exception("Failed to parse")
                 print("ERROR: %s" % ex)
+
 
 if __name__ == '__main__':
     main()

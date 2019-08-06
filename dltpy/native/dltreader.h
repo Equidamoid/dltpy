@@ -35,19 +35,19 @@ public:
   
 class DltReader{
     enum class Stage{
-	Storage, Basic, Extended, Payload, Done
+        Storage, Basic, Extended, Payload, Done
     };
-	    
+            
     const Stage iClearStage;
-	
+        
     StorageHeader iStorageHeader;
     BasicHeader iBasicHeader;
     ExtendedHeader iExtendedHeader;
-	
+        
     Stage iStage{iClearStage};
 
     std::array<char, 8196> iBuffer;
-	
+        
     char* iDataEnd{iBuffer.begin()};
     char* iCursor{iBuffer.begin()};
     char* iMessageBegin{iBuffer.begin()};
@@ -55,19 +55,19 @@ class DltReader{
     off_t iBasicOffset{0};
     off_t iPayloadOffset{0};
     off_t iPayloadEndOffset{0};
-	
+        
     off_t dataLeft();
     void readyOrThrow() const{
-	if (iStage != Stage::Done){
-	    throw std::runtime_error("Not ready yet. Give me more data!");
-	}
+        if (iStage != Stage::Done){
+            throw std::runtime_error("Not ready yet. Give me more data!");
+        }
     }
     void selfcheck();
     std::string str();
 public:
     DltReader(bool expectStorage);
     DltReader(const DltReader&) = delete;
-     	
+        
     bool read();
     bool findMagic();
 
@@ -77,44 +77,44 @@ public:
 
     std::tuple<char*, size_t> getBuffer(){flush(); return {iDataEnd, iBuffer.end() - iDataEnd};}
     void updateBuffer(size_t len){iDataEnd += len;}
-	
+        
     const StorageHeader& getStorage() const{
-	if (iClearStage != Stage::Storage){
-	    throw std::runtime_error("Storage header won't be read");
-	}
-	readyOrThrow();
-	return iStorageHeader;
+        if (iClearStage != Stage::Storage){
+            throw std::runtime_error("Storage header won't be read");
+        }
+        readyOrThrow();
+        return iStorageHeader;
     }
 
     const BasicHeader& getBasic() const{
-	readyOrThrow();
-	return iBasicHeader;
+        readyOrThrow();
+        return iBasicHeader;
 
-	   
+           
     }
 
     const ExtendedHeader getExtended() const{
-	readyOrThrow();
-	if (!iBasicHeader.use_ext){
-	    throw std::runtime_error("No extended header in current message");
-	}
-	return iExtendedHeader;
+        readyOrThrow();
+        if (!iBasicHeader.use_ext){
+            throw std::runtime_error("No extended header in current message");
+        }
+        return iExtendedHeader;
     }
 
     std::tuple<char*, size_t> getPayload() const{
-	readyOrThrow();
-	return {iMessageBegin + iPayloadOffset, iPayloadEndOffset - iPayloadOffset};
+        readyOrThrow();
+        return {iMessageBegin + iPayloadOffset, iPayloadEndOffset - iPayloadOffset};
     }
-	
+        
     std::tuple<char*, size_t> getMessage() const{
-	readyOrThrow();
-	return {iMessageBegin, iPayloadEndOffset};
+        readyOrThrow();
+        return {iMessageBegin, iPayloadEndOffset};
     }
 
     bool rawStream() const {
         return iClearStage != Stage::Storage;
-    }	
-	
+    }   
+        
 };
 
 struct MsgFilter{
@@ -129,10 +129,10 @@ class FilteredDltReader: public DltReader{
     bool checkFilters();
 public:
     FilteredDltReader(bool expectStorage,
-		      const std::vector<MsgFilter>& filters,
-		      bool verboseOnly = true
-	);
+                      const std::vector<MsgFilter>& filters,
+                      bool verboseOnly = true
+        );
 
     bool readFiltered();
-	    
+            
 };

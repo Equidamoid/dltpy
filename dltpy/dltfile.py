@@ -35,7 +35,7 @@ def get_value(p: PayloadItem):
     return None
 
 
-def parse_payload(pl: bytes):
+def decode_payload(pl: bytes):
     s = io.BytesIO(pl)
     ret = []
     while s.tell() < len(pl):
@@ -65,8 +65,8 @@ class DltMessage:
         self.verbose: bool = None
 
         self._raw_payload: bytes = None
-        self._payload_cache = None
-        self._raw_data = None
+        self._decoded_payload = None
+        self._raw_message = None
         self._load(reader)
         self.human_friendly_override = None
 
@@ -88,7 +88,7 @@ class DltMessage:
 
         # the memory views will be invalidated when the next message is parsed, so need to copy them to a bytes object
         self._raw_payload = bytes(reader.get_payload())
-        self._raw_data = bytes(reader.get_message())
+        self._raw_message = bytes(reader.get_message())
 
     def __str__(self):
         return 'DltMsg(%.4f,%s:%s)' % (self.ts, self.app, self.ctx)
@@ -100,13 +100,20 @@ class DltMessage:
         return False
 
     @property
-    def payload(self):
-        if self._payload_cache is None:
-            self._payload_cache = parse_payload(self._raw_payload)
-        return self._payload_cache
+    def payload(self) -> list:
+        """
+        Returns parsed message payload
+        """
+        if self._decoded_payload is None:
+            self._decoded_payload = decode_payload(self._raw_payload)
+        return self._decoded_payload
 
     @property
     def human_friendly_payload(self):
+        """
+        Tries to convert payload to more printable form.
+        Can be overridden by `human_friendly_override`
+        """
         if self.human_friendly_override is not None:
             return self.human_friendly_override
 
@@ -123,20 +130,31 @@ class DltMessage:
         return pl
 
     @property
-    def raw_message(self):
-        return self._raw_data
+    def raw_message(self) -> bytes:
+        return self._raw_message
 
 
 class DltReader:
-    def __init__(self, reader, filters=None, capure_raw=False, expect_storage_header=True):
+    def __init__(self,
+                 reader: typing.Callable[[memoryview], int],
+                 filters: typing.Optional[typing.List[typing.Tuple[str, str]]] = None,
+                 capture_raw: bool = False,
+                 expect_storage_header: bool = True):
+        """
+
+        :param reader: "readinto"-style callback for getting data
+        :param filters: list of (app_id, ctx_id) filters
+        :param capture_raw:
+        :param expect_storage_header: `True` for .dlt files, `False` for "raw" socket streams
+        """
         #TODO optional capture_raw
         filters = filters or []
         self.reader = reader
-        self.capture_raw = capure_raw
+        self.capture_raw = capture_raw
         logger.info("Constructing reader, storage=%s, filters=%r", expect_storage_header, filters)
         self.rdr = dltpy.native.native_dltreader.DltReader(expect_storage_header, filters)
 
-    def get_next_message(self):
+    def get_next_message(self) -> typing.Optional[DltMessage]:
         while not self.rdr.read():
             buf = self.rdr.get_buffer()
             l = self.reader(buf)

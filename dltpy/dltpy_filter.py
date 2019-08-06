@@ -43,12 +43,13 @@ def main():
 
                     out_fd = out_fn.open('wb')
                 current_ts = msg.ts
-                out_fd.write(msg._raw_data)
+                out_fd.write(msg._raw_message)
 
     if out_fd is None:
         logging.warning("No records written!")
     else:
         out_fd.close()
+
 
 if __name__ == '__main__':
     main()
