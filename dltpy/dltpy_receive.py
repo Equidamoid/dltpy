@@ -8,6 +8,7 @@ import typing
 import socket
 import asyncio
 import sys
+from ipaddress import ip_address
 from pathlib import Path
 from dltpy.native.native_dltreader import DltReader
 
@@ -35,12 +36,14 @@ class AsyncReceiver:
 
     def __init__(self,
                  address: typing.Tuple[str, int],
+                 socket_AF: str,
                  out_fn: Path,
                  filters: typing.Optional[typing.List[typing.Tuple[str, str]]] = None):
 
         self._address = address
         if not isinstance(out_fn, Path):
             out_fn = Path(out_fn)
+        self._socket_AF = socket_AF
         self._out_fn = out_fn
         self._filters = filters or []
         self._alive = True
@@ -56,7 +59,7 @@ class AsyncReceiver:
         with self._out_fn.open('wb') as out:
             while self._alive:
                 try:
-                    self._socket = socket.socket()
+                    self._socket = socket.socket(self._socket_AF, socket.SOCK_STREAM, 0)
                     self._socket.settimeout(0)
                     self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
                     if sys.platform.startswith('linux'):
@@ -118,14 +121,27 @@ def main():
 
     host = args.host
     port = 3490
-
+    
     flt = cli_common.parse_filters(args.filter)
     out_fn = args.output
-    if ':' in host:
-        host, port = host.split(':')
+    
+    IP6_with_port = ']:' in host
+    IP4_with_port = (not IP6_with_port) and ('.' in host) and (':' in host)
+
+    if (IP6_with_port or IP4_with_port):
+        ip, _,port = host.rpartition(':')
+        host = ip.strip("[]") 
         port = int(port)
 
-    ar = AsyncReceiver((host, port), out_fn, flt)
+    try:
+      ip = socket.getaddrinfo(host,port)
+      af = ip[0][0] 
+
+    except:
+        print("Error: Can't resolve given host URL")
+        sys.exit()
+
+    ar = AsyncReceiver((host, port), af, out_fn, flt)
     asyncio.get_event_loop().run_until_complete(ar.run())
 
 
