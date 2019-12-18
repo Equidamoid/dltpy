@@ -8,7 +8,6 @@ import typing
 import socket
 import asyncio
 import sys
-from ipaddress import ip_address
 from pathlib import Path
 from dltpy.native.native_dltreader import DltReader
 
@@ -129,7 +128,7 @@ def main():
     IP4_with_port = (not IP6_with_port) and ('.' in host) and (':' in host)
 
     if (IP6_with_port or IP4_with_port):
-        ip, _,port = host.rpartition(':')
+        ip, _, port = host.rpartition(':')
         host = ip.strip("[]") 
         port = int(port)
 
