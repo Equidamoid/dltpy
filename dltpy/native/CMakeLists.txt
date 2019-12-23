@@ -11,38 +11,41 @@
 
 project(native_dltreader)
 cmake_minimum_required(VERSION 3.10)
-find_package(Boost REQUIRED
-    COMPONENTS
-        python3
-)
-find_package(PythonLibs 3 REQUIRED)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_EXTENSIONS OFF)
+#set(CMAKE_CXX_CLANG_TIDY clang-tidy
+#	-checks=-*,cppcoreguidelines-*,portability-*,bugprone-*)
+
+add_subdirectory(pybind11)
+
+#find_package(PythonLibs 3 REQUIRED)
 find_package(fmt REQUIRED)
-add_definitions('--std=c++17')
-add_definitions('-Wall')
+#add_definitions(-Wall -Wextra -pedantic -ansi)
 set(CMAKE_EXPORT_COMPILE_COMMANDS YES)
 
-add_library(${PROJECT_NAME}
-SHARED
+
+add_library(dltreader_native SHARED
+    dltreader_native.cpp
     dltreader.cpp
-    dltreader_boost.cpp
     log.cpp
-)
-target_include_directories(${PROJECT_NAME}
-    PUBLIC 
-    ${Boost_INCLUDE_DIRS} 
+    )
+
+
+target_include_directories(dltreader_native
+    PUBLIC
     ${PYTHON_INCLUDE_DIR}
 )
-target_link_libraries(${PROJECT_NAME}
-    ${Boost_LIBRARIES}
+target_link_libraries(dltreader_native
     ${PYTHON_LIBRARY}
     fmt::fmt
+    pybind11::pybind11
 )
 set_target_properties(
-    ${PROJECT_NAME}
+    dltreader_native
     PROPERTIES
         PREFIX ""
         SUFFIX ".so"
-        OUTPUT_NAME ${PROJECT_NAME}
+        OUTPUT_NAME dltreader_native
         LINKER_LANGUAGE C
     )
-

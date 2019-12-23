@@ -16,7 +16,7 @@
 
 from dltpy.gen.payload_item import PayloadItem
 from binascii import hexlify
-import dltpy.native.native_dltreader
+from dltpy.native.dltreader_native import DltReader as DR
 import logging
 import io
 import typing
@@ -57,7 +57,7 @@ def decode_payload(pl: bytes):
 
 
 class DltMessage:
-    def __init__(self, reader: dltpy.native.native_dltreader.DltReader):
+    def __init__(self, reader: DR):
         self.app: str = None
         self.ctx: str = None
         self.ts: float = None
@@ -70,7 +70,7 @@ class DltMessage:
         self._load(reader)
         self.human_friendly_override = None
 
-    def _load(self, reader: dltpy.native.native_dltreader.DltReader):
+    def _load(self, reader: DR):
         ehdr = reader.get_extended()
         bhdr = reader.get_basic()
         if ehdr:
@@ -152,7 +152,7 @@ class DltReader:
         self.reader = reader
         self.capture_raw = capture_raw
         logger.info("Constructing reader, storage=%s, filters=%r", expect_storage_header, filters)
-        self.rdr = dltpy.native.native_dltreader.DltReader(expect_storage_header, filters)
+        self.rdr = DR(expect_storage_header, filters)
 
     def get_next_message(self) -> typing.Optional[DltMessage]:
         while not self.rdr.read():

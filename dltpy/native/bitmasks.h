@@ -42,7 +42,7 @@ Char* read_bitmask(Char* begin, int offset){
     }
 //    static_assert((offset % 8) == 0, "Bitmask must take complete bytes");
     return begin + (offset / 8);
-};
+}
 
 template<class Char, int Len, int... Lengths>
 Char* read_bitmask(Char* begin, int offset, SubByteValue<Len>& val, SubByteValue<Lengths>&... values){
