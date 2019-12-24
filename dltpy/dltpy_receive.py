@@ -9,7 +9,7 @@ import socket
 import asyncio
 import sys
 from pathlib import Path
-from dltpy.native.native_dltreader import DltReader
+from dltpy.native.dltreader_native import DltReader
 
 logger = logging.getLogger(__name__)
 
