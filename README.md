@@ -1,22 +1,27 @@
 ### dltpy - library and utilities for DLT logging
 
 #### Installing
-##### Requirements
-dltpy uses native extension to parse and filter messages. This is done purely for performance reasons.
-In my usecases which involve filtering out ~95% of the logs it speeds up the processing ~20 times.
-As a funny fact, due to stricter filtering `dltpy-dump` is even faster than `dlt-convert -a` for me.
-
- - `boost::python`. Sorry for the pain. If it complains about it, make sure that you have the `-dev`
- package installed. Also keep in mind that is has to be built/installed for every minor version of python. So if you
- built python 3.7 for your ubuntu 16.04, `apt-get` won't help you, you have to built boost yourself. Sorry again.
-
- - `fmtlib` for native logging and formatting exceptions
+##### Requirements (not handled by pip/setuptools)
+ - native build environment: `python3-dev`, `cmake` and a [decent c++ compiler supporting c++17](https://en.cppreference.com/w/cpp/compiler_support#cpp17).
+ - [`fmtlib`](https://github.com/fmtlib/fmt) for native logging and formatting exceptions
 
 ##### Installation
+Once the requirements mentioned above are ready, you can install dltpy with pip just as any other python package:
+
+ - current master from git:
 ```
-git clone git+https://github.com/Equidamoid/dltpy
-pip install --user ./dltpy
+pip install --user git+https://github.com/Equidamoid/dltpy.git
 ```
+ - last version from pypi:
+```
+pip install --user dltpy
+```
+ - an editable "developer" mode:
+```$xslt
+git clone https://github.com/Equidamoid/dltpy.git
+pip install --user -e dltpy
+```
+
 
 #### Using
 
