@@ -15,9 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include <stdio.h>
 #include <array>
-#include <stdint.h>
+#include <cstdint>
 #include <type_traits>
 #include <string>
 #include "bitmasks.h"
@@ -41,7 +40,7 @@ namespace{
     // Limiting message size by 4200 allows to process the longest possible messages while giving a decent 93%
     // chance to detect a corrupted message and start recovering by looking for a storage signature.
 
-    // This doesn't make sence when you're listening from a socket (not storage header with magic), so
+    // This doesn't make sense when you're listening from a socket (not storage header with magic), so
     // TODO: disable when storage header is not available
     // TODO: change/disable the constant at run/compile time for those lucky ones whose systems can collect logs properly
     constexpr int MSG_MAX_LEN{4200};
@@ -132,7 +131,6 @@ bool DltReader::read(){
         if (!std::equal(
                 m.begin(), m.end(),
                 storage_magic.begin(), storage_magic.end())){
-            fprintf(stderr, "Magic mismatch!");
             throw dlt_corrupted("Magic mismatch!");
         }
         //LOG("Read storage header, ts={}", iStorageHeader.ts_sec);
@@ -321,6 +319,7 @@ bool match(const std::array<char, 4>& id, const std::optional<std::array<char, 4
     }
     return true; 
 }
+
 
 bool MsgFilter::operator()(const DltReader& rdr) const{
     auto& hdr = rdr.getBasic();

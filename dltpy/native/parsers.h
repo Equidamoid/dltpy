@@ -31,7 +31,7 @@ struct filler;
 
 template<size_t N>
 struct filler<std::array<char, N>>{
-    static size_t fill(const char* begin, bool bigend, std::array<char, N>& dest){
+    static size_t fill(const char* begin, bool /*bigend*/, std::array<char, N>& dest){
         std::copy(begin, begin + N, dest.begin());
         return N;
     }
