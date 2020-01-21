@@ -254,6 +254,7 @@ bool DltReader::findMagic(){
                 storage_magic.begin(), storage_magic.end(),
                 iCursor, iCursor + 4)){
             iMessageBegin = iCursor;
+            iStage = Stage::Storage;
             LOG("Magic found after {} bytes", iCursor - startCur);
             return true;
         }
