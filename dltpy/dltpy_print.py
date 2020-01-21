@@ -47,6 +47,8 @@ def main():
         for dm in dltf:
             try:
                 print(cli_common.message_str(dm))
+            except IOError:
+                raise
             except Exception as ex:
                 logging.exception("Failed to parse")
                 print("ERROR: %s" % ex)
