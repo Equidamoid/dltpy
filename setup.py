@@ -49,7 +49,6 @@ class build_ext_cmake(build_ext):
 
 setup(
     name='dltpy',
-    version='0.3.6.0',
     description='DLT log reader',
     long_description=Path('README.md').read_text(),
     long_description_content_type="text/markdown",
@@ -66,6 +65,10 @@ setup(
             'dltpy-receive=dltpy.dltpy_receive:main',
         ],
     },
+    setup_requires=(
+        'setuptools_scm',
+        'setuptools_scm_git_archive',
+    ),
     install_requires=['kaitaistruct>=0.7'],
     classifiers=[
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
