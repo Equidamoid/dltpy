@@ -244,6 +244,9 @@ void DltReader::resetMessage(){
 }
     
 bool DltReader::findMagic(){
+    if (iClearStage != Stage::Storage){
+        throw std::runtime_error("Storage header is not expected, will not search for storage magic");
+    }
     if (iCursor == iMessageBegin){
         ++iCursor;
     }
