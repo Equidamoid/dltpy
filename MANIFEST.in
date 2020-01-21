@@ -1,2 +1,3 @@
 recursive-include . CMakeLists.txt
 recursive-include . *.cpp *.h
+recursive-include dltpy/native/pybind11 *
