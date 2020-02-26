@@ -49,7 +49,7 @@ PYBIND11_MODULE(dltreader_native, m){
             .def("read", &FilteredDltReader::readFiltered)
             .def("get_buffer", [](FilteredDltReader& rdr){
                 auto [buf, size] = rdr.getBuffer();
-                return py::memoryview(py::buffer_info(buf, size, false));
+                return py::memoryview(py::buffer_info((char*)buf, size, false));
             })
             .def("get_payload", [](FilteredDltReader& rdr){
                 auto [buf, size] = rdr.getPayload();
