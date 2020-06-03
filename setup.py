@@ -3,6 +3,7 @@ from setuptools import setup, find_packages, Extension
 from setuptools.command.build_ext import build_ext
 from pathlib import Path
 import os
+import sys
 
 class CMakeExtension(Extension):
 
@@ -32,7 +33,8 @@ class build_ext_cmake(build_ext):
         config = 'Debug' if self.debug else 'Release'
         cmake_args = [
             '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(extdir.parent.absolute()),
-            '-DCMAKE_BUILD_TYPE=' + config
+            '-DCMAKE_BUILD_TYPE=' + config,
+            '-DPYBIND11_PYTHON_VERSION=%s.%s' % (sys.version_info.major, sys.version_info.minor),
         ]
 
         # example of build args
