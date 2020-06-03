@@ -49,15 +49,15 @@ PYBIND11_MODULE(dltreader_native, m){
             .def("read", &FilteredDltReader::readFiltered)
             .def("get_buffer", [](FilteredDltReader& rdr){
                 auto [buf, size] = rdr.getBuffer();
-                return py::handle(PyMemoryView_FromMemory(buf, size, PyBUF_WRITE));
+                return py::reinterpret_steal<py::object>(PyMemoryView_FromMemory(buf, size, PyBUF_WRITE));
             })
             .def("get_payload", [](FilteredDltReader& rdr){
                 auto [buf, size] = rdr.getPayload();
-                return py::handle(PyMemoryView_FromMemory(buf, size, PyBUF_WRITE));
+                return py::reinterpret_steal<py::object>(PyMemoryView_FromMemory(buf, size, PyBUF_WRITE));
             })
             .def("get_message", [](FilteredDltReader& rdr){
                 auto [buf, size] = rdr.getMessage();
-                return py::handle(PyMemoryView_FromMemory(buf, size, PyBUF_WRITE));
+                return py::reinterpret_steal<py::object>(PyMemoryView_FromMemory(buf, size, PyBUF_WRITE));
             })
             .def("get_basic", [](const FilteredDltReader& rdr){
                 auto& hdr = rdr.getBasic();
