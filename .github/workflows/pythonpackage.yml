@@ -32,7 +32,7 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: try install
-      run: pip install .
+      run: python3.6 -m pip install .
     - name: test if commandline utilities run
       run: |
         set -e
