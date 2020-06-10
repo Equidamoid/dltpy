@@ -1,9 +1,9 @@
 #! /usr/bin/env python3
 from setuptools import setup, find_packages, Extension
 from setuptools.command.build_ext import build_ext
-from pathlib import Path
 import os
-import sys
+import pathlib
+import shutil
 
 class CMakeExtension(Extension):
 
@@ -17,49 +17,60 @@ class build_ext_cmake(build_ext):
     def run(self):
         for ext in self.extensions:
             self.build_cmake(ext)
-        super().run()
 
-    def build_cmake(self, ext):
-        cwd = Path().absolute()
+    def build_cmake(self, extension):
 
-        # these dirs will be created in build_py, so if you don't have
-        # any python sources to bundle, the dirs will be missing
-        build_temp = Path(self.build_temp)
-        build_temp.mkdir(parents=True, exist_ok=True)
-        extdir = Path(self.get_ext_fullpath(ext.name))
-        extdir.mkdir(parents=True, exist_ok=True)
+        build_dir = pathlib.Path(self.build_temp)
 
-        # example of cmake args
+        extension_path = pathlib.Path(self.get_ext_fullpath(extension.name))
+
+        os.makedirs(build_dir, exist_ok=True)
+        os.makedirs(extension_path.parent.absolute(), exist_ok=True)
+
+        # Now that the necessary directories are created, build
+
+        self.announce("Configuring cmake project", level=3)
+
+        # Change your cmake arguments below as necessary
+        # Below is just an example set of arguments for building Blender as a Python module
+
         config = 'Debug' if self.debug else 'Release'
-        cmake_args = [
-            '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + str(extdir.parent.absolute()),
-            '-DCMAKE_BUILD_TYPE=' + config,
-            '-DPYBIND11_PYTHON_VERSION=%s.%s' % (sys.version_info.major, sys.version_info.minor),
-        ]
+        self.spawn(['cmake', '-H'+str(pathlib.Path().absolute()), '-B'+self.build_temp,
+                    '-DCMAKE_BUILD_TYPE=' + config,
+                    '-DPYBIND11_PYTHON_VERSION=%s.%s' % (sys.version_info.major, sys.version_info.minor)])
 
-        # example of build args
-        build_args = [
-            '--config', config,
-            '--', '-j4'
-        ]
+        self.announce("Building binaries", level=3)
 
-        os.chdir(str(build_temp))
-        self.spawn(['cmake', str(cwd)] + cmake_args)
-        if not self.dry_run:
-            self.spawn(['cmake', '--build', '.'] + build_args)
-        os.chdir(str(cwd))
+        self.spawn(['cmake', '--build', self.build_temp,
+                    '--config', config])
+
+        # Build finished, now copy the files into the copy directory
+        # The copy directory is the parent directory of the extension (.pyd)
+
+        self.announce("Moving built python module", level=3)
+
+        bin_dir = os.path.join(build_dir, 'dltpy', 'native')
+        self.distribution.bin_dir = bin_dir
+
+        pyd_path = [os.path.join(bin_dir, _pyd) for _pyd in
+                    os.listdir(bin_dir) if
+                    os.path.isfile(os.path.join(bin_dir, _pyd)) and
+                    os.path.splitext(_pyd)[0].startswith('dltreader_native') and
+                    os.path.splitext(_pyd)[1] in [".pyd", ".so"]][0]
+
+        shutil.move(pyd_path, extension_path)
 
 setup(
     name='dltpy',
     version='0.3.6.6',
     description='DLT log reader',
-    long_description=Path('README.md').read_text(),
+    long_description=pathlib.Path('README.md').read_text(),
     long_description_content_type="text/markdown",
     author='Vladimir Shapranov',
     author_email='equidamoid@gmail.com',
     url='https://github.com/Equidamoid/dltpy',
     packages=find_packages(),
-    ext_modules=[CMakeExtension('dltpy/native/native_dltfile')],
+    ext_modules=[CMakeExtension('dltpy/native/dltreader_native')],
     cmdclass={'build_ext': build_ext_cmake,},
     entry_points={
         'console_scripts': [

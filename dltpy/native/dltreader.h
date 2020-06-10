@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "headers.h"
+#include <stdexcept>
 #include <vector>
 #include <optional>
 #include <tuple>
@@ -48,9 +49,9 @@ class DltReader{
 
     std::array<char, 8196> iBuffer;
         
-    char* iDataEnd{iBuffer.begin()};
-    char* iCursor{iBuffer.begin()};
-    char* iMessageBegin{iBuffer.begin()};
+    char* iDataEnd{iBuffer.data()};
+    char* iCursor{iBuffer.data()};
+    char* iMessageBegin{iBuffer.data()};
 
     off_t iBasicOffset{0};
     off_t iPayloadOffset{0};
@@ -75,7 +76,7 @@ public:
     void consumeMessage();
     void flush();
 
-    std::tuple<char*, size_t> getBuffer(){flush(); return {iDataEnd, iBuffer.end() - iDataEnd};}
+    std::tuple<char*, size_t> getBuffer(){flush(); return {iDataEnd, &(*iBuffer.end()) - iDataEnd};}
     void updateBuffer(size_t len){iDataEnd += len;}
         
     const StorageHeader& getStorage() const{

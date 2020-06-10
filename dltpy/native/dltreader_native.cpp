@@ -8,7 +8,7 @@ namespace py=pybind11;
 template<size_t N>
 auto pyArrayStringToBytes(const std::array<char, N>& arr){
     off_t len = std::find(arr.begin(), arr.end(), '\0') - arr.begin();
-    return py::bytes(arr.begin(), len);
+    return py::bytes(arr.data(), len);
 }
 
 template<size_t N>
