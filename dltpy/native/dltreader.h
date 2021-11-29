@@ -18,6 +18,7 @@
 #include <vector>
 #include <optional>
 #include <tuple>
+#include <stdexcept>
 class dlt_corrupted: public std::runtime_error{
 public:
     using std::runtime_error::runtime_error;
