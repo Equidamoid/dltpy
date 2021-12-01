@@ -37,15 +37,22 @@ target_include_directories(dltreader_native
     ${PYTHON_INCLUDE_DIR}
 )
 target_link_libraries(dltreader_native
-    ${PYTHON_LIBRARY}
+    ${PYTHON_LIBRARIES}
     fmt::fmt
     pybind11::pybind11
 )
+
+if(WIN32)
+    set(suffix ".pyd")
+else()
+    set(suffix ".so")
+endif()
+
 set_target_properties(
     dltreader_native
     PROPERTIES
         PREFIX ""
-        SUFFIX ".so"
+        SUFFIX ${suffix}
         OUTPUT_NAME dltreader_native
         LINKER_LANGUAGE C
     )

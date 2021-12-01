@@ -22,8 +22,6 @@
 #include "bitmasks.h"
 #include "parsers.h"
 #include "headers.h"
-#include <fcntl.h>
-#include <unistd.h>
 #include <cassert>
 #include <vector>
 #include "dltreader.h"
@@ -80,15 +78,15 @@ DltReader::DltReader(bool expectStorage)
 
 std::string DltReader::str(){
     return fmt::format("DltReader(buf={:p}, msg={:p}, data end={:p})",
-                       iBuffer.begin(),
+                       iBuffer.data(),
                        iMessageBegin,
                        iDataEnd
         );
 }
 
 void DltReader::selfcheck(){
-    assert(iMessageBegin >= iBuffer.begin() && iMessageBegin <= iDataEnd);
-    assert(iDataEnd >= iBuffer.begin() && iDataEnd <= iBuffer.end());
+    assert(iMessageBegin >= iBuffer.data() && iMessageBegin <= iDataEnd);
+    assert(iDataEnd >= iBuffer.data() && iDataEnd <= &(*iBuffer.end()));
 }
 
 off_t DltReader::dataLeft(){
@@ -107,8 +105,8 @@ void DltReader::consumeMessage(){
 
 void DltReader::flush(){
     selfcheck();
-    auto shift = iMessageBegin - iBuffer.begin();
-    iDataEnd = std::copy(iMessageBegin, iDataEnd, iBuffer.begin());
+    auto shift = iMessageBegin - iBuffer.data();
+    iDataEnd = std::copy(iMessageBegin, iDataEnd, iBuffer.data());
     iCursor -= shift;
     iMessageBegin -= shift;
     selfcheck();
